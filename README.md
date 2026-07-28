@@ -3,7 +3,7 @@
 비행기를 타고 세계를 누비며 각국의 수도를 맞히는 웹 게임.
 **HTML 파일 하나**가 게임의 전부다. 설치도, 빌드도, 서버도 필요 없다.
 
-> ▶ **[지금 플레이하기](https://tionbary.github.io/cap_airline/)**
+> ▶ **[지금 플레이하기](https://capairline.com/)**
 
 ![시작 화면](docs/start.jpg)
 
@@ -57,7 +57,7 @@ python -m http.server 5599
 
 ## 배포
 
-[GitHub Pages](https://tionbary.github.io/cap_airline/)로 서비스 중이다.
+**[capairline.com](https://capairline.com/)** 에서 서비스 중이다. (GitHub Pages + 커스텀 도메인, HTTPS)
 Settings → Pages에서 `main` / `(root)`를 고르는 것 외엔 설정이 없고, **`main`에 푸시하면 자동 재배포**된다.
 
 정적 파일뿐이라 Netlify·Cloudflare Pages·아무 웹서버에 올려도 똑같이 돌아간다.
@@ -98,6 +98,7 @@ index.html    게임 전체 (HTML + CSS + JS 인라인)
 CLAUDE.md     아키텍처 문서 — 코드를 고치기 전에 읽을 것
 README.md     이 문서
 LICENSE       MIT
+CNAME         커스텀 도메인 (GitHub Pages 자동 생성)
 docs/         스크린샷
 ```
 

@@ -4,7 +4,7 @@
 설치·빌드 없이 브라우저에서 바로 실행된다.
 
 ## 실행 / 배포 현황
-- **서비스 중**: https://tionbary.github.io/cap_airline/
+- **서비스 중**: https://capairline.com/
 - **저장소**: https://github.com/TIONBARY/cap_airline (`main` 브랜치, MIT)
 - **랭킹 서버**: Supabase 연결 완료 → 전 세계 공용 랭킹이 실제로 돌고 있다
 - 로컬 실행은 `index.html` 더블클릭이면 끝. 서버 불필요.
@@ -17,12 +17,21 @@
 - `README.md` — 저장소 공개용 소개. 게임 규칙·특징이 바뀌면 여기도 같이 고칠 것.
 - `LICENSE` — MIT (© 2026 TIONBARY).
 - `.gitignore` — OS 부산물(Thumbs.db 등)만 제외.
+- `CNAME` — 커스텀 도메인(`capairline.com`) 지정. **GitHub Pages가 자동 생성한 파일이라 지우면 안 된다.**
 - `docs/` — README용 스크린샷 (`start.jpg`, `play.jpg`).
 
-## 배포 (GitHub Pages)
+## 배포 (GitHub Pages + 커스텀 도메인)
 - 방식은 **Deploy from a branch** (`main` / `root`). **`main`에 푸시하면 자동 재배포**된다.
   누를 버튼 없음. Actions 탭의 `pages build and deployment`로 진행 상황을 본다.
 - 푸시 후 실제 반영까지 **보통 40초~2분**.
+- **도메인**: `capairline.com` (Cloudflare Registrar 구매, Cloudflare DNS).
+  - apex에 GitHub Pages IP **A 레코드 4개**(`185.199.108~111.153`), `www`는 CNAME → `tionbary.github.io`
+  - Cloudflare 프록시는 **회색 구름(DNS only)**. 주황 구름이면 GitHub이 인증서를 발급하지 못한다
+  - `www` / `http` 진입은 전부 `https://capairline.com/` 으로 301된다 (Enforce HTTPS 켜짐)
+  - 저장소 루트의 **`CNAME` 파일이 도메인을 지정한다. 지우면 도메인 연결이 끊긴다**
+- ⚠️ **Pages 설정에서 도메인을 건드리면 GitHub이 원격에 `CNAME` 커밋을 직접 만든다.**
+  로컬에서 작업하기 전에 반드시 `git pull --rebase origin main` — 안 하면 푸시가 거절된다(실제로 겪었음).
+- ⚠️ Enforce HTTPS를 켜도 http→https 리다이렉트가 도는 데 **2분쯤** 걸린다. 바로 안 된다고 당황하지 말 것.
 - ⚠️ **캐시 2종을 구분할 것**
   1. HTML은 `max-age=600`이라 최대 10분간 옛 버전이 보일 수 있다 → `Ctrl+Shift+R`
   2. 카톡·트위터는 **URL별로 미리보기를 캐시**한다. OG 태그를 고쳤는데 미리보기가 그대로면
@@ -34,9 +43,9 @@
 - **파비콘** — 🌍 이모지를 인라인 SVG data URI로 넣었다. 외부 파일도, 추가 요청도 없다.
   바꾸려면 data URI 안의 이모지(`%F0%9F%8C%8D`)만 교체하면 된다.
 - **OG / 트위터 카드** — 카톡·트위터·디스코드 링크 미리보기용. 이미지는 `docs/play.jpg`.
-  현재 `og:url` / `og:image` / `twitter:image`가 **github.io 절대 URL**로 박혀 있다.
+  `og:url` / `og:image` / `twitter:image`는 **`https://capairline.com/` 절대 URL**이다.
   상대 경로면 크롤러가 못 읽으므로 반드시 절대 URL이어야 한다.
-  → **커스텀 도메인을 붙이면 이 세 곳의 호스트를 새 도메인으로 교체**하고 README 링크도 같이 고칠 것.
+  → 도메인이 또 바뀌면 이 세 곳 + README 플레이 링크를 같이 고치고, 카카오 공유 디버거로 캐시를 비울 것.
 - 게임 규칙·소개 문구를 고치면 `og:description`, `meta[name=description]`, README도 같이 맞출 것.
 
 ## 기술 스택 / 설계 원칙
@@ -274,14 +283,13 @@
 ## ▶ 다음 작업
 1. **모바일 대응 (최우선)** — 하단 입력바가 소프트 키보드에 가린다.
    카톡으로 링크를 뿌리면 유입 대부분이 모바일이라 이게 제일 급하다.
-2. **커스텀 도메인** — 도메인 구입 후 DNS 연결 →
-   `og:url` / `og:image` / `twitter:image` 호스트 교체 + README 플레이 링크 갱신
-3. **난이도 티어** — 100개국이 되면서 체감 난이도 편차가 커졌다. 인구 상위권부터 나오다가
+2. **난이도 티어** — 100개국이 되면서 체감 난이도 편차가 커졌다. 인구 상위권부터 나오다가
    점수가 오를수록 하위권(부르키나파소·베냉 등)이 섞이게 하면 자연스럽다 (`pop` 필드를 그대로 쓰면 됨).
    같이 미사일도 빨라지게 하려면 `launchMissile`의 `speed`/`turn`을 `score`로 스케일.
 
 **완료된 것** — 미사일 연출 폴리싱 / 100개국 확장 / 중복 없는 출제 / 세계일주 완주 연출 /
-이름 입력 + 온라인 랭킹(Supabase) / 파비콘·OG / GitHub Pages 배포 / MIT 라이선스
+이름 입력 + 온라인 랭킹(Supabase) / 파비콘·OG / GitHub Pages 배포 /
+**커스텀 도메인 `capairline.com` + HTTPS** / MIT 라이선스
 
 ## 튜닝 포인트 (자주 만지는 숫자)
 - `MAX_LIVES` — 시작 목숨 (현재 2)
