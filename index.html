@@ -1526,18 +1526,6 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     return { x, y, vx: Math.cos(ang) * 5.4, vy: Math.sin(ang) * 5.4 };
   }
 
-  // 작은 불티 (기만탄 스칠 때)
-  function sparkPuff(x, y) {
-    for (let i = 0; i < 12; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 3.5;
-      fxParticles.push({
-        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-        life: .8, decay: .04, size: 1.6 + Math.random() * 1.6, grav: .04,
-        color: `hsl(${40 + Math.random() * 20}, 100%, 78%)`,
-      });
-    }
-  }
-
   // 미사일 폭발: 섬광 → 충격파 → 불덩이 → 파편 → 연기
   // k = 규모 (1 = 명중, 0.6 = 플레어 유폭 같은 작은 폭발)
   function explode(x, y, k = 1) {
@@ -1596,7 +1584,8 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
       speed: 6.5, accel: .11, maxSpeed: 18, turn: .038,
       home: { x: tx, y: ty },      // 회피 기동의 기준점 (도착지)
       plane: { x: tx, y: ty },     // 실제 비행기 위치 (매 프레임 갱신)
-      phase: "chase",              // chase → decoyed → (회피 유폭 | reacquire → 명중)
+      // 회피(비치명): chase → decoyed → 유폭  /  격추(치명): chase → 명중 (플레어 없음)
+      phase: "chase",
       decoy: null, fatal,
       missDist: 110 + Math.random() * 80,   // 회피 시 이만큼 벌어진 뒤 유폭 (매번 다르게)
       born: now, last: now, phaseAt: now, lastBeep: 0,
@@ -1704,32 +1693,32 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 
     // ── 페이즈 전환 ──
     if (m.phase === "chase") {
-      if (dist < 300 && age > 250) {                        // 플레어 사출 → 미사일 기만
+      if (m.fatal) {
+        // 마지막 오답(격추): **플레어를 안 쓴다.** 록온이 풀리지 않고 그대로 명중한다.
+        // 가까워질수록 선회율을 올려, 회피 기동하는 비행기를 놓치고 맴도는 일이 없게 한다.
+        // 가까워질수록 선회율을 올려 확실히 문다 (회피 기동하는 비행기를 놓치고 맴돌지 않게).
+        // 선회율을 초반에 더 낮춰봤자 직선으로 꽂혀 오히려 빨리 끝난다 — 측정으로 확인함.
+        m.turn = Math.min(.34, m.turn + .0022 * dt);
+        m.maxSpeed = 20;
+        if (dist < 38) { hitPlane(m); return; }
+        if (age > 5000) {                                   // 안전장치: 비행기 자리에서 폭발
+          m.x = m.plane.x; m.y = m.plane.y;
+          hitPlane(m); return;
+        }
+      } else if (dist < 300 && age > 250) {                 // 플레어 사출 → 미사일 기만
         const side = Math.random() < .5 ? -1 : 1;
         const away = Math.atan2(m.plane.y - m.y, m.plane.x - m.x) + side * (1.15 + Math.random() * .3);
         m.decoy = spawnFlares(m.plane.x, m.plane.y, away);
         m.phase = "decoyed"; m.turn = .055; m.phaseAt = now;
       } else if (dist < 40) {                               // 플레어 전에 붙어버린 예외
-        m.fatal ? hitPlane(m) : evadeMissile(m); return;
+        evadeMissile(m); return;
       }
     } else if (m.phase === "decoyed") {
+      // 여기는 회피(비치명) 전용 경로다. 격추는 chase에서 바로 끝난다.
       const dd = Math.hypot(m.decoy.x - m.x, m.decoy.y - m.y);
       const reached = dd < 38 || now - m.phaseAt > 620;
-      if (!m.fatal) {
-        // 회피 성공: 비행기 옆을 스쳐 지나 충분히 멀어진 뒤에 유폭해야 "빗나갔다"로 읽힌다
-        if ((reached && dist > m.missDist) || now - m.phaseAt > 1300) { evadeMissile(m); return; }
-      } else if (reached) {
-        sparkPuff(m.decoy.x, m.decoy.y);                    // 마지막 오답만 재포착
-        m.phase = "reacquire"; m.turn = .14; m.maxSpeed = 20; m.phaseAt = now;
-      }
-    } else if (m.phase === "reacquire") {
-      // 시간이 갈수록 더 급하게 선회 → 비행기 주위를 맴돌다 못 맞히는 일 방지
-      m.turn = Math.min(.34, m.turn + .002 * dt);
-      if (dist < 38) { hitPlane(m); return; }              // 급선회로 되돌아와 명중
-      if (now - m.phaseAt > 1500 || age > 5000) {          // 오래 끌면 비행기 자리에서 폭발
-        m.x = m.plane.x; m.y = m.plane.y;
-        hitPlane(m); return;
-      }
+      // 비행기 옆을 스쳐 지나 충분히 멀어진 뒤에 유폭해야 "빗나갔다"로 읽힌다
+      if ((reached && dist > m.missDist) || now - m.phaseAt > 1300) { evadeMissile(m); return; }
     }
 
     // 플레어에 속아 있는 동안엔 록온이 풀린 상태 → 조준선 안 그림
