@@ -61,16 +61,16 @@ python -m http.server 5599
 
 ```js
 const RANK = {
-  url: "https://xxxxxxxx.supabase.co",   // Project URL
-  key: "eyJhbGciOi...",                  // anon public key
+  url: "https://xxxxxxxx.supabase.co",           // Project URL
+  key: "sb_publishable_xxxxxxxxxxxxxxxxxxxx",    // Publishable key
 };
 ```
 
 테이블 생성 SQL과 보안 설계(왜 upsert가 아니라 insert-only인지)는 [CLAUDE.md](CLAUDE.md)의
 "온라인 랭킹 셋업" 항목에 정리돼 있다.
 
-> `anon public` 키는 클라이언트에 노출되는 것이 정상이며 RLS로 권한이 제한된다.
-> **`service_role` 키는 절대 넣지 말 것.**
+> Publishable 키는 클라이언트에 노출되는 것이 정상이며 RLS와 테이블 권한으로 제한된다.
+> **`sb_secret_...` (구 `service_role`) 키는 절대 넣지 말 것.**
 
 ## 기술 스택
 

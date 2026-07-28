@@ -1013,12 +1013,14 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
   //    비워두면 이 브라우저에만 저장되는 로컬 랭킹으로 동작한다.
   //    셋업 방법(테이블 SQL 포함)은 CLAUDE.md "온라인 랭킹 셋업" 참고.
   const RANK = {
-    url: "",   // 예: https://abcdefgh.supabase.co
-    key: "",   // anon public key (공개돼도 되는 키)
+    url: "https://jpvdjgkdlvfssacgpmex.supabase.co",
+    key: "sb_publishable_ztrWGREPHJPggYIY1Btb-g_HRG0N7LL",
   };
   // ▲▲
   const rankOnline = () => !!(RANK.url && RANK.key);
-  const rankHeaders = () => ({ apikey: RANK.key, Authorization: `Bearer ${RANK.key}` });
+  // apikey 헤더만 보낸다. Authorization: Bearer 는 로그인한 사용자의 세션 JWT 자리라
+  // publishable 키를 거기 넣는 건 의미상 맞지 않다 (넣어도 동작은 하지만 안 넣는 게 정석).
+  const rankHeaders = () => ({ apikey: RANK.key });
 
   // 이름 정리: 제어문자·꺾쇠 제거, 공백 정리, 12자 제한
   function cleanName(s) {

@@ -138,7 +138,11 @@
 이름별 최고 점수 랭킹. **키를 안 넣으면 이 브라우저에만 저장되는 로컬 랭킹으로 동작**하고,
 아래 셋업을 마치고 키 두 줄만 채우면 전 세계 공용 랭킹이 된다. 게임 코드는 바꿀 게 없다.
 
-1. [supabase.com](https://supabase.com)에서 프로젝트 생성 (무료 티어)
+1. [supabase.com](https://supabase.com)에서 프로젝트 생성 (무료 티어, **리전은 Seoul** — 나중에 변경 불가)
+   - 생성 화면의 Security 옵션: **Enable Data API 켜기(필수)** /
+     **Automatically expose new tables 끄기** / **Enable automatic RLS 켜기**
+   - "자동 노출"을 껐기 때문에 아래 SQL에 **명시적 `grant`가 반드시 필요**하다.
+     RLS 정책만으로는 안 된다 — PostgREST는 정책 이전에 테이블 권한을 먼저 본다.
 2. **SQL Editor**에 아래를 그대로 실행
    ```sql
    -- 점수는 append-only. 남의 기록을 덮어쓰거나 지울 수 없게 insert만 허용한다.
@@ -148,26 +152,46 @@
      score      int    not null check (score >= 0 and score <= 100000),
      created_at timestamptz not null default now()
    );
+
+   -- RLS: 익명에게 등록/조회만 허용. update·delete는 정책이 없으니 자동 차단.
    alter table public.scores enable row level security;
    create policy "anon insert" on public.scores for insert to anon with check (true);
    create policy "anon select" on public.scores for select to anon using (true);
 
+   -- "새 테이블 자동 노출"을 껐으므로 권한을 직접 부여 (update/delete는 주지 않는다)
+   grant usage on schema public to anon;
+   grant select, insert on public.scores to anon;
+
    -- 이름별 최고점만 집계한 랭킹 뷰 (게임은 이 뷰만 읽는다)
-   create view public.leaderboard as
+   -- security_invoker = on → 뷰가 호출자(anon) 권한으로 돌아 RLS가 그대로 적용된다.
+   --   끄면 뷰가 소유자 권한으로 실행되어 RLS를 우회한다 (Supabase 보안 린터가 지적하는 패턴)
+   create view public.leaderboard with (security_invoker = on) as
      select name, max(score) as score, max(created_at) as at
      from public.scores group by name;
    grant select on public.leaderboard to anon;
    ```
-3. **Settings → API**에서 `Project URL`과 `anon public` 키를 복사
+   `id`가 `generated always as identity`라 시퀀스 권한은 따로 줄 필요 없다.
+   > SQL의 `to anon`은 **Postgres 역할 이름**이지 API 키 이름이 아니다. Publishable 키를 쓰든
+   > 구형 anon 키를 쓰든 둘 다 이 `anon` 역할로 매핑되므로 이 SQL은 그대로 쓰면 된다.
+3. **Project Settings → API**에서 `Project URL`과 **Publishable 키**(`sb_publishable_...`)를 복사
+   - 구형 `anon` JWT 키(`eyJhbGci...`)도 아직 동작하지만 **Publishable을 쓴다.**
+     구형은 만료가 있고(JWT `exp`), 폐기하려면 JWT 시크릿을 갈아야 해서 모든 키·세션이 함께 무효화된다.
+     Publishable은 개별 발급·폐기가 된다.
+   - ⚠️ `sb_secret_...` (구 `service_role`)는 절대 넣지 말 것. RLS를 통째로 무시한다.
 4. `index.html`의 `const RANK = { url: "", key: "" }` 두 줄을 채운다 (파일 상단 `── 랭킹` 블록)
 
 **설계 메모**
-- **왜 upsert가 아니라 insert-only인가** — anon 키는 공개되므로 upsert를 허용하면 아무나 남의 이름 점수를
+- **왜 upsert가 아니라 insert-only인가** — 클라이언트 키는 공개되므로 upsert를 허용하면 아무나 남의 이름 점수를
   낮게 덮어쓸 수 있다. 전 기록을 쌓고 뷰에서 `max()`를 집계하면 그 공격이 원천 봉쇄된다.
+- **권한은 2중 방어** — ① 테이블 GRANT를 `select, insert`로만 준다(권한 자체가 없으면 RLS 이전에 막힌다)
+  ② 그 위에 RLS 정책. 둘 중 하나만 잘못돼도 뚫리지 않는다.
 - **어뷰징** — 클라이언트가 점수를 보내는 구조라 마음먹으면 가짜 점수를 넣을 수 있다.
   `check` 제약이 말도 안 되는 값만 거른다. 더 막으려면 Edge Function에 검증/레이트리밋을 두는 방향.
 - **XSS** — 남이 입력한 이름을 그리므로 `renderRank()`는 반드시 `textContent`만 쓴다. `innerHTML` 금지.
-- **anon 키 공개** — 정상이다. RLS로 권한이 묶여 있어 노출돼도 문제되지 않는다(service_role 키는 절대 넣지 말 것).
+- **Publishable 키 공개** — 정상이다. 어차피 HTML에 박혀 모든 방문자 브라우저로 전송된다.
+  GRANT와 RLS가 권한을 묶고 있어 노출돼도 문제되지 않는다 (`sb_secret_...`는 절대 넣지 말 것).
+- **요청 헤더는 `apikey` 하나만** 보낸다. `Authorization: Bearer`는 로그인 사용자의 세션 JWT 자리라
+  Publishable 키를 넣는 건 의미상 틀렸다(넣어도 동작은 함). `rankHeaders()` 참고.
 
 ## 나라 목록 갱신 (UN 인구 기준)
 `COUNTRIES[]`는 **UN 세계인구전망(World Population Prospects)** 최신 추계를 기준으로 주기적으로 갱신한다.
