@@ -95,7 +95,7 @@
     transform: translate(-100px, -100px);
     filter: drop-shadow(0 2px 4px rgba(0,0,0,.6));
   }
-  #plane { font-size: 30px; }
+  #plane { font-size: 60px; }
   /* 도착 핀: 국기 + 나라명 카드 */
   #pin {
     opacity: 0;
@@ -1026,7 +1026,9 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
   // 핀: 생각 말풍선처럼 도시 지점(x,y)의 오른쪽 위로 비켜 띄운다 (비행기를 안 가리게)
   // 말풍선 꼬리(작은 점)가 왼쪽 아래 = 비행기 쪽을 가리키도록 bottom-left 기준으로 배치
   function placePin(x, y) {
-    pinEl.style.transform = `translate(${x + 24}px, ${y - 14}px) translate(0, -100%)`;
+    // 오프셋은 비행기 크기(#plane font-size)에 맞춰 실측으로 잡은 값이다.
+    // 비행기를 키우면 여기도 같이 키워야 말풍선이 비행기를 안 가린다.
+    pinEl.style.transform = `translate(${x + 54}px, ${y - 32}px) translate(0, -100%)`;
   }
   // 비행 종료 후: 도착지에 줌인 + 핀(국기·나라명) 표시
   function idleAtDest() {
@@ -1539,7 +1541,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
   // 록온 조준선 (비행기 주변, 가까울수록 조여든다)
   function drawLockOn(x, y, dist, now) {
     const close = Math.max(0, Math.min(1, 1 - dist / 650));
-    const r = 56 - 24 * close;
+    const r = 128 - 38 * close;   // 비행기를 감쌀 만큼 커야 한다 (#plane 크기와 함께 조정)
     const a = .3 + .5 * (.5 + .5 * Math.sin(now / (90 - close * 45)));
     fxCtx.save();
     fxCtx.translate(x, y);
