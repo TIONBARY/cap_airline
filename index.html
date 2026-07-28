@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>세계 수도 퀴즈</title>
+<title>CAP AIRLINE</title>
 <meta name="description" content="비행기를 타고 세계를 누비며 각국의 수도를 맞히는 웹 게임. 틀리면 공해상에서 미사일이 날아온다 — 플레어를 뿌려 회피하라!">
 <meta name="theme-color" content="#0b1b2e">
 
@@ -15,8 +15,8 @@
         예) https://game.example.com/  ·  https://game.example.com/docs/play.jpg
         상대 경로는 미리보기 크롤러가 못 읽는 경우가 많다. -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="세계 수도 퀴즈">
-<meta property="og:title" content="🌍 세계 수도 퀴즈 — 비행기 타고 세계일주">
+<meta property="og:site_name" content="CAP AIRLINE">
+<meta property="og:title" content="🌍 CAP AIRLINE — 비행기 타고 세계일주">
 <meta property="og:description" content="100개국을 날아다니며 수도를 맞혀라. 틀리면 미사일이 날아온다 — 플레어를 뿌려 회피하라!">
 <meta property="og:image" content="docs/play.jpg">
 <meta property="og:image:width" content="1568">
@@ -25,7 +25,7 @@
 <meta property="og:url" content="">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="🌍 세계 수도 퀴즈 — 비행기 타고 세계일주">
+<meta name="twitter:title" content="🌍 CAP AIRLINE — 비행기 타고 세계일주">
 <meta name="twitter:description" content="100개국을 날아다니며 수도를 맞혀라. 틀리면 미사일이 날아온다 — 플레어를 뿌려 회피하라!">
 <meta name="twitter:image" content="docs/play.jpg">
 <style>
@@ -239,11 +239,11 @@
     50%      { opacity: .35; }
   }
   body:not(.flying) #hud { display: none; }
-  .title {
+  .title {   /* 로마자 워드마크라 자간을 벌려야 항공사 로고처럼 읽힌다 */
     text-align: center;
-    font-size: 26px;
+    font-size: 30px;
     font-weight: 800;
-    letter-spacing: -.5px;
+    letter-spacing: 4px;
     background: linear-gradient(90deg, var(--accent), var(--accent2));
     -webkit-background-clip: text;
     background-clip: text;
@@ -561,7 +561,7 @@
     <!-- 시작 화면 -->
     <div id="start-screen">
       <div class="flag">🌍</div>
-      <div class="title">세계 수도 퀴즈</div>
+      <div class="title">CAP AIRLINE</div>
       <div class="subtitle">비행기로 세계를 누비며 수도를 맞혀라!<br>
         목숨 ❤️❤️ 2개 — 다 잃고 한 번 더 틀리면 격추! 🚀</div>
       <input type="text" class="answer-input" id="player-name" maxlength="12"
@@ -725,7 +725,7 @@
   const startRank = document.getElementById("start-rank");
   const resultRank = document.getElementById("result-rank");
 
-  let playerName = localStorage.getItem("wcq_name") || "";   // 랭킹에 쓸 이름
+  let playerName = localStorage.getItem("cap_name") || "";   // 랭킹에 쓸 이름
 
   // 비행 레이어 요소
   const planeEl = document.getElementById("plane");
@@ -1028,13 +1028,13 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 
   // 로컬 기록 { 이름: 최고점 }
   function localScores() {
-    try { return JSON.parse(localStorage.getItem("wcq_scores") || "{}"); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem("cap_scores") || "{}"); } catch { return {}; }
   }
   function localBest(name) { return localScores()[name] ?? -1; }
   function localSubmit(name, score) {
     const s = localScores();
     if (score > (s[name] ?? -1)) s[name] = score;
-    localStorage.setItem("wcq_scores", JSON.stringify(s));
+    localStorage.setItem("cap_scores", JSON.stringify(s));
   }
   function localTop(n) {
     return Object.entries(localScores())
@@ -1102,7 +1102,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
   const sfxBtn = document.getElementById("sfx-btn");
   let actx = null;                 // 첫 사용자 클릭 이후에 생성 (브라우저 정책)
   let noiseBuf = null;
-  let muted = localStorage.getItem("wcq_muted") === "1";
+  let muted = localStorage.getItem("cap_muted") === "1";
 
   function ac() {
     if (muted) return null;
@@ -1167,7 +1167,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
   };
   function setMuted(v) {
     muted = v;
-    localStorage.setItem("wcq_muted", v ? "1" : "0");
+    localStorage.setItem("cap_muted", v ? "1" : "0");
     sfxBtn.textContent = v ? "🔇" : "🔊";
   }
   setMuted(muted);
@@ -1758,7 +1758,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     }
     playerName = n;
     nameInput.value = n;
-    localStorage.setItem("wcq_name", n);
+    localStorage.setItem("cap_name", n);
     startGame();
   }
   function backToStart() {                     // 결과 화면 → 시작 화면(이름 변경)

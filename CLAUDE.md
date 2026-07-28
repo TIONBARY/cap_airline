@@ -1,4 +1,4 @@
-# 세계 수도 퀴즈 (World Capital Quiz)
+# CAP AIRLINE
 
 비행기를 타고 세계를 누비며 각국의 수도를 맞히는 웹 게임. 순수 HTML/CSS/JS 단일 파일이라
 설치·빌드 없이 브라우저에서 바로 실행된다.
@@ -28,7 +28,7 @@
 - **외부 의존성**: 국기 이미지(`https://flagcdn.com/w160/<code>.png`) 뿐. 그 외 전부 자체 포함.
 
 ## 게임 규칙
-- 시작 전 **이름 입력** 필수. 이름은 `localStorage["wcq_name"]`에 저장돼 다음 방문에 자동으로 채워진다.
+- 시작 전 **이름 입력** 필수. 이름은 `localStorage["cap_name"]`에 저장돼 다음 방문에 자동으로 채워진다.
 - 게임오버 시 점수가 랭킹에 등록되고, 시작/결과 화면에 **이름별 최고 점수 TOP 10**이 뜬다
   (내 이름 행은 파랗게 강조). 셋업은 "온라인 랭킹 셋업" 참고.
 - **목숨 ❤️❤️ 2개**로 시작 (`MAX_LIVES`). 목숨이 0이 되면 HUD에 **"마지막 기회!"**가 뜨고,
@@ -101,7 +101,7 @@
 - `tone(f0, f1, dur, vol, type, when)` — 주파수가 미끄러지는 오실레이터
 - `noiseHit(dur, vol, c0, c1, q, when)` — 로우패스 컷오프를 쓸며 감쇠하는 노이즈
 - `sfx.launch / warn / flare / boom / pop` — 발사·경고음·플레어·폭발·폭죽
-- HUD 우측 🔊 버튼(`#sfx-btn`)으로 음소거 토글, `localStorage["wcq_muted"]`에 저장
+- HUD 우측 🔊 버튼(`#sfx-btn`)으로 음소거 토글, `localStorage["cap_muted"]`에 저장
 
 ### 이펙트 시스템 (단일 `fxLoop`)
 한 canvas(`#fx`)에서 전부 렌더. 렌더 순서가 곧 레이어 순서다:
