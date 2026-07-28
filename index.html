@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>세계 수도 퀴즈</title>
+<meta name="description" content="비행기를 타고 세계를 누비며 각국의 수도를 맞히는 웹 게임. 틀리면 공해상에서 미사일이 날아온다 — 플레어를 뿌려 회피하라!">
+<meta name="theme-color" content="#0b1b2e">
+
+<!-- 파비콘: 이모지를 인라인 SVG로 (외부 파일·요청 없음) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.92em' font-size='92'%3E%F0%9F%8C%8D%3C/text%3E%3C/svg%3E">
+
+<!-- 링크 미리보기 (카카오톡·트위터·디스코드·슬랙 등)
+     ⚠️ 배포 후 og:url 과 og:image / twitter:image 를 실제 도메인의 **절대 URL**로 바꿔야 한다.
+        예) https://game.example.com/  ·  https://game.example.com/docs/play.jpg
+        상대 경로는 미리보기 크롤러가 못 읽는 경우가 많다. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="세계 수도 퀴즈">
+<meta property="og:title" content="🌍 세계 수도 퀴즈 — 비행기 타고 세계일주">
+<meta property="og:description" content="100개국을 날아다니며 수도를 맞혀라. 틀리면 미사일이 날아온다 — 플레어를 뿌려 회피하라!">
+<meta property="og:image" content="docs/play.jpg">
+<meta property="og:image:width" content="1568">
+<meta property="og:image:height" content="744">
+<meta property="og:image:alt" content="블럭 세계지도 위를 나는 비행기와 유도 미사일">
+<meta property="og:url" content="">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="🌍 세계 수도 퀴즈 — 비행기 타고 세계일주">
+<meta name="twitter:description" content="100개국을 날아다니며 수도를 맞혀라. 틀리면 미사일이 날아온다 — 플레어를 뿌려 회피하라!">
+<meta name="twitter:image" content="docs/play.jpg">
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --card2: #334155;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --correct: #22c55e;
+    --wrong: #ef4444;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+    background: #0b1b2e;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: hidden;
+  }
+  .app {
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+    z-index: 3;
+  }
+  .card {
+    background: rgba(30, 41, 59, .88);
+    backdrop-filter: blur(3px);
+    border-radius: 20px;
+    padding: 28px 24px 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255,255,255,.06);
+  }
+
+  /* ── 카메라 (블럭 지도 + 궤적을 통째로 줌/이동) ── */
+  #camera {
+    position: fixed;
+    left: 0; top: 0;
+    transform-origin: 0 0;
+    z-index: 0;
+    will-change: transform;
+  }
+  #map {
+    position: absolute;
+    left: 0; top: 0;
+    image-rendering: pixelated;   /* 블럭 느낌 유지 */
+  }
+  #trail {
+    position: absolute;
+    left: 0; top: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .flight-obj {
+    position: fixed;
+    left: 0; top: 0;
+    z-index: 6;
+    pointer-events: none;
+    will-change: transform;
+    transform: translate(-100px, -100px);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.6));
+  }
+  #plane { font-size: 30px; }
+  /* 도착 핀: 국기 + 나라명 카드 */
+  #pin {
+    opacity: 0;
+    z-index: 8;
+    transition: opacity .25s ease;
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,.55));
+  }
+  #pin.show { opacity: 1; }
+  .pin-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px 9px;
+    background: rgba(15, 23, 42, .92);
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 12px;
+    animation: pin-pop .3s cubic-bezier(.34,1.56,.64,1) .08s backwards;
+  }
+  .pin-flag {
+    width: 66px;
+    height: auto;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,.2);
+    display: block;
+  }
+  .pin-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: #f1f5f9;
+    white-space: nowrap;
+  }
+  /* 생각 말풍선 꼬리: 비행기 쪽(왼쪽 아래)으로 작아지는 점 두 개 */
+  .pin-tail {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    margin: 4px 0 0 10px;
+  }
+  .pin-tail span {
+    display: block;
+    background: rgba(15, 23, 42, .92);
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 50%;
+    animation: pin-pop .25s cubic-bezier(.34,1.56,.64,1) backwards;
+  }
+  .pin-tail span:nth-child(1) { width: 10px; height: 10px; margin-left: 13px; animation-delay: .04s; }
+  .pin-tail span:nth-child(2) { width: 6px;  height: 6px;  margin-left: 0;    animation-delay: 0s; }
+  @keyframes pin-pop {
+    from { transform: translateY(6px) scale(.85); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  /* 정답 폭죽 캔버스 (최상단) */
+  #fx {
+    position: fixed;
+    inset: 0;
+    z-index: 9;
+    pointer-events: none;
+  }
+
+  /* ── 미사일 경보 연출 (붉은 비네트 + 경고 배너) ── */
+  #danger {
+    position: fixed;
+    inset: 0;
+    z-index: 8;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .3s ease;
+    box-shadow: inset 0 0 170px 45px rgba(220, 38, 38, .55);
+  }
+  body.alarm #danger { animation: danger-pulse .75s ease-in-out infinite; }
+  @keyframes danger-pulse {
+    0%, 100% { opacity: .4; }
+    50%      { opacity: 1; }
+  }
+  #warn {
+    position: fixed;
+    top: 58px; left: 0; right: 0;
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #fecaca;
+    text-shadow: 0 0 14px rgba(239,68,68,.95), 0 2px 6px rgba(0,0,0,.85);
+    opacity: 0;
+  }
+  body.alarm #warn { animation: warn-blink .48s steps(1, end) infinite; }
+  @keyframes warn-blink {
+    0%, 62%  { opacity: 1; }
+    63%,100% { opacity: .45; }
+  }
+
+  /* 사운드 토글 버튼 (HUD 우측) */
+  #sfx-btn {
+    background: rgba(30, 41, 59, .7);
+    border: 1px solid rgba(255,255,255,.12);
+    color: #cbd5e1;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.3;
+    padding: 4px 10px;
+  }
+  #sfx-btn:hover { filter: brightness(1.3); }
+
+  /* 비행 레이어는 게임 중에만 표시 */
+  body:not(.flying) #trail,
+  body:not(.flying) #plane,
+  body:not(.flying) #pin { display: none; }
+
+  /* 게임 중엔 가운데 카드 숨김 (문제는 지도 위 핀에) */
+  body.flying .app { display: none; }
+
+  /* 상단 HUD */
+  #hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 7;
+    padding: 14px 16px 12px;
+    background: linear-gradient(to bottom, rgba(10,15,28,.9) 40%, rgba(10,15,28,0));
+  }
+  #hud .topbar { max-width: 460px; margin: 0 auto; color: #cbd5e1; font-size: 15px; }
+  #lives { font-size: 20px; letter-spacing: 3px; }
+  /* 목숨 0 = 마지막 기회 (여기서 또 틀리면 끝) */
+  #lives.last-chance::after {
+    content: " 마지막 기회!";
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0;
+    color: #fca5a5;
+    text-shadow: 0 0 10px rgba(239,68,68,.9);
+    animation: last-chance-blink .9s ease-in-out infinite;
+  }
+  @keyframes last-chance-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: .35; }
+  }
+  body:not(.flying) #hud { display: none; }
+  .title {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 22px;
+  }
+  .btn {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .08s ease, filter .15s ease;
+    color: #fff;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn-primary {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+
+  /* progress */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .score { color: var(--accent); }
+  .progress {
+    height: 8px;
+    background: var(--card2);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 22px;
+  }
+  .progress > div {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width .3s ease;
+  }
+
+  .flag {
+    font-size: 68px;
+    text-align: center;
+    line-height: 1;
+    margin: 6px 0 10px;
+  }
+  .flag-img {
+    width: 190px;
+    height: auto;
+    display: inline-block;
+    vertical-align: middle;
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.4);
+    border: 1px solid rgba(255,255,255,.12);
+  }
+  .question {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 22px;
+  }
+  .question b { color: var(--accent); }
+
+  /* 입력창 */
+  .answer-input {
+    width: 100%;
+    background: var(--card2);
+    border: 2px solid transparent;
+    color: var(--text);
+    padding: 15px 18px;
+    border-radius: 14px;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    outline: none;
+    transition: all .12s ease;
+  }
+  .answer-input::placeholder { color: var(--muted); font-weight: 500; }
+  .answer-input:focus { border-color: var(--accent); }
+  .answer-input.correct { background: rgba(34,197,94,.15); border-color: var(--correct); color: #86efac; }
+  .answer-input.wrong { background: rgba(239,68,68,.15); border-color: var(--wrong); color: #fca5a5; }
+
+  /* 하단 고정 입력 바 */
+  #answer-bar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 7;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    display: flex;
+    justify-content: center;
+    background: linear-gradient(to top, rgba(10,15,28,.96) 40%, rgba(10,15,28,0));
+  }
+  #answer-bar .answer-input {
+    max-width: 460px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.5);
+  }
+
+  /* 정답/피드백 안내 (바 바로 위에 떠서 표시) */
+  .feedback {
+    position: fixed;
+    left: 0; right: 0; bottom: 86px;
+    z-index: 7;
+    text-align: center;
+    min-height: 22px;
+    font-size: 15px;
+    font-weight: 700;
+    pointer-events: none;
+    text-shadow: 0 2px 6px rgba(0,0,0,.8);
+  }
+  .feedback.correct { color: #86efac; }
+  .feedback.wrong { color: #fca5a5; }
+  .feedback .answer-label { color: var(--accent); }
+
+  /* 입력 바/피드백은 게임 중에만 표시 */
+  body:not(.flying) #answer-bar,
+  body:not(.flying) #feedback { display: none; }
+
+  /* ── 세계일주 완주 배너 ── */
+  #lap-clear {
+    position: fixed;
+    inset: 0;
+    z-index: 11;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    pointer-events: none;
+    text-align: center;
+  }
+  #lap-clear.hidden { display: none; }   /* .hidden 보다 우선순위가 높아야 해서 명시 */
+  /* 지도 위에서도 글자가 읽히도록 가운데만 어둡게 */
+  #lap-clear::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center,
+      rgba(8,12,24,.78) 0%, rgba(8,12,24,.5) 36%, rgba(8,12,24,0) 68%);
+    animation: lap-fade .4s ease backwards;
+  }
+  #lap-clear > * { position: relative; }   /* 비네트 위로 */
+  @keyframes lap-fade { from { opacity: 0; } to { opacity: 1; } }
+  .lap-emoji {
+    font-size: 82px;
+    line-height: 1;
+    filter: drop-shadow(0 8px 24px rgba(0,0,0,.6));
+    animation: lap-globe 1.1s cubic-bezier(.34,1.56,.64,1);
+  }
+  .lap-title {
+    font-size: 46px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(90deg, #fde68a, #fbbf24, #fde68a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 18px rgba(251,191,36,.55)) drop-shadow(0 3px 8px rgba(0,0,0,.7));
+    animation: lap-pop .5s cubic-bezier(.34,1.56,.64,1) .12s backwards;
+  }
+  .lap-sub {
+    font-size: 16px;
+    font-weight: 700;
+    color: #e2e8f0;
+    text-shadow: 0 2px 8px rgba(0,0,0,.9);
+    animation: lap-pop .5s cubic-bezier(.34,1.56,.64,1) .26s backwards;
+  }
+  @keyframes lap-globe {
+    0%   { transform: scale(.2) rotate(-140deg); opacity: 0; }
+    60%  { transform: scale(1.15) rotate(10deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  @keyframes lap-pop {
+    from { transform: translateY(14px) scale(.8); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  /* result */
+  .result-emoji { font-size: 64px; text-align: center; margin-bottom: 8px; }
+  .result-score {
+    text-align: center;
+    font-size: 40px;
+    font-weight: 800;
+    margin-bottom: 2px;
+  }
+  .result-who { text-align: center; font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+  .result-msg { text-align: center; color: var(--muted); margin-bottom: 6px; font-size: 15px; }
+
+  /* ── 이름 입력 / 랭킹 ── */
+  #player-name { margin-bottom: 10px; }
+  #start-btn, #restart-btn { margin-top: 4px; }
+  .btn-ghost {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 9px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-ghost:hover { color: var(--text); }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-7px); }
+    40%, 80% { transform: translateX(7px); }
+  }
+  .shake { animation: shake .35s; }
+
+  .rank-box { margin: 18px 0 10px; }
+  .rank-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .rank-note { font-size: 11px; font-weight: 600; color: #64748b; }
+  .rank-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 232px;
+    overflow-y: auto;
+  }
+  .rank-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 7px 11px;
+    border-radius: 10px;
+    background: rgba(51, 65, 85, .5);
+    font-size: 14px;
+    border: 1px solid transparent;
+  }
+  .rank-row.me { background: rgba(56,189,248,.16); border-color: rgba(56,189,248,.45); }
+  .rank-no { text-align: center; font-weight: 800; color: var(--muted); font-size: 15px; }
+  .rank-name {
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rank-score { font-weight: 800; color: var(--accent); }
+  .rank-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 16px 0; }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<!-- 카메라: 블럭 지도 + 비행 궤적 (통째로 줌인/줌아웃 됨) -->
+<div id="camera">
+  <canvas id="map"></canvas>
+  <svg id="trail" preserveAspectRatio="none"></svg>
+</div>
+
+<!-- 화면 고정 오브젝트: 비행기 + 도착 핀(국기·나라명) -->
+<div id="pin" class="flight-obj"></div>
+<div id="plane" class="flight-obj">✈️</div>
+
+<!-- 정답 폭죽 / 미사일 / 폭발 -->
+<canvas id="fx"></canvas>
+
+<!-- 미사일 경보 (피격 연출 중에만 표시) -->
+<div id="danger"></div>
+<div id="warn">⚠️ 미사일 접근 — 회피!</div>
+
+<!-- 100개국 한 바퀴 완주 시 -->
+<div id="lap-clear" class="hidden">
+  <div class="lap-emoji">🌍</div>
+  <div class="lap-title">세계일주 완주!</div>
+  <div class="lap-sub" id="lap-sub"></div>
+</div>
+
+<!-- 상단 HUD: 진행도 / 점수 (게임 중에만 표시) -->
+<div id="hud">
+  <div class="topbar">
+    <span id="lives">❤️❤️</span>
+    <span class="score" id="q-score">정답 0</span>
+    <button id="sfx-btn" type="button" title="소리 켜기/끄기">🔊</button>
+  </div>
+</div>
+
+<!-- 하단 정답 입력 바 (게임 중에만 표시) -->
+<div class="feedback" id="feedback"></div>
+<div id="answer-bar">
+  <input type="text" class="answer-input" id="answer-input"
+         placeholder="도착한 나라의 수도를 입력하고 Enter" autocomplete="off"
+         autocapitalize="off" spellcheck="false">
+</div>
+
+<div class="app">
+  <div class="card">
+
+    <!-- 시작 화면 -->
+    <div id="start-screen">
+      <div class="flag">🌍</div>
+      <div class="title">세계 수도 퀴즈</div>
+      <div class="subtitle">비행기로 세계를 누비며 수도를 맞혀라!<br>
+        목숨 ❤️❤️ 2개 — 다 잃고 한 번 더 틀리면 격추! 🚀</div>
+      <input type="text" class="answer-input" id="player-name" maxlength="12"
+             placeholder="이름을 입력하세요" autocomplete="off"
+             autocapitalize="off" spellcheck="false">
+      <button class="btn btn-primary" id="start-btn">게임 시작</button>
+      <div class="rank-box" id="start-rank">
+        <div class="rank-head"><span>🏆 랭킹 TOP 10</span><span class="rank-note"></span></div>
+        <div class="rank-list"></div>
+      </div>
+    </div>
+
+    <!-- 퀴즈 화면: 가운데 카드 없음 (문제는 지도 위 핀에 표시) -->
+    <div id="quiz-screen" class="hidden"></div>
+
+    <!-- 결과 화면 -->
+    <div id="result-screen" class="hidden">
+      <div class="result-emoji" id="result-emoji">🎉</div>
+      <div class="result-score" id="result-score">0 / 10</div>
+      <div class="result-who" id="result-who"></div>
+      <div class="result-msg" id="result-msg"></div>
+      <div class="rank-box" id="result-rank">
+        <div class="rank-head"><span>🏆 랭킹 TOP 10</span><span class="rank-note"></span></div>
+        <div class="rank-list"></div>
+      </div>
+      <button class="btn btn-primary" id="restart-btn">다시 도전!</button>
+      <button class="btn-ghost" id="rename-btn">이름 바꾸기</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ── 나라 데이터 ─────────────────────────────────────
+  // UN 회원국(193개국) 중 **인구 상위 100개국**. 배열 순서 = 인구 순위(내림차순).
+  //   code    ISO 3166-1 alpha-2 소문자 → 국기 URL에 그대로 들어감 (flagcdn.com/w160/<code>.png)
+  //   capital 정답이 되는 수도. lat/lon은 나라 중심이 아니라 **수도**의 좌표 (비행기가 수도에 내림)
+  //   pop     인구(백만 명, UN 세계인구전망 2024 추계). 목록 갱신 시 정렬·컷 기준으로만 쓰임
+  // 갱신 절차는 CLAUDE.md "나라 목록 갱신(UN 인구 기준)" 참고.
+  const COUNTRIES = [
+    { code: "in", country: "인도", capital: "뉴델리", lat: 28.61, lon: 77.21, pop: 1451 },
+    { code: "cn", country: "중국", capital: "베이징", lat: 39.90, lon: 116.40, pop: 1419 },
+    { code: "us", country: "미국", capital: "워싱턴 D.C.", lat: 38.90, lon: -77.04, pop: 345 },
+    { code: "id", country: "인도네시아", capital: "자카르타", lat: -6.21, lon: 106.85, pop: 284 },
+    { code: "pk", country: "파키스탄", capital: "이슬라마바드", lat: 33.68, lon: 73.05, pop: 251 },
+    { code: "ng", country: "나이지리아", capital: "아부자", lat: 9.06, lon: 7.49, pop: 233 },
+    { code: "br", country: "브라질", capital: "브라질리아", lat: -15.79, lon: -47.88, pop: 212 },
+    { code: "bd", country: "방글라데시", capital: "다카", lat: 23.81, lon: 90.41, pop: 174 },
+    { code: "ru", country: "러시아", capital: "모스크바", lat: 55.75, lon: 37.62, pop: 144 },
+    { code: "et", country: "에티오피아", capital: "아디스아바바", lat: 9.03, lon: 38.74, pop: 132 },
+    { code: "mx", country: "멕시코", capital: "멕시코시티", lat: 19.43, lon: -99.13, pop: 131 },
+    { code: "jp", country: "일본", capital: "도쿄", lat: 35.68, lon: 139.69, pop: 124 },
+    { code: "eg", country: "이집트", capital: "카이로", lat: 30.04, lon: 31.24, pop: 117 },
+    { code: "ph", country: "필리핀", capital: "마닐라", lat: 14.60, lon: 120.98, pop: 116 },
+    { code: "cd", country: "콩고민주공화국", capital: "킨샤사", lat: -4.44, lon: 15.27, pop: 109 },
+    { code: "vn", country: "베트남", capital: "하노이", lat: 21.03, lon: 105.85, pop: 101 },
+    { code: "ir", country: "이란", capital: "테헤란", lat: 35.69, lon: 51.39, pop: 92 },
+    { code: "tr", country: "튀르키예", capital: "앙카라", lat: 39.93, lon: 32.86, pop: 87 },
+    { code: "de", country: "독일", capital: "베를린", lat: 52.52, lon: 13.40, pop: 84 },
+    { code: "th", country: "태국", capital: "방콕", lat: 13.76, lon: 100.50, pop: 72 },
+    { code: "gb", country: "영국", capital: "런던", lat: 51.51, lon: -0.13, pop: 69 },
+    { code: "tz", country: "탄자니아", capital: "도도마", lat: -6.16, lon: 35.75, pop: 68 },  // 공식 수도(최대도시는 다르에스살람)
+    { code: "fr", country: "프랑스", capital: "파리", lat: 48.85, lon: 2.35, pop: 66 },
+    { code: "za", country: "남아프리카공화국", capital: "프리토리아", lat: -25.75, lon: 28.19, pop: 64 },  // 행정수도(입법 케이프타운·사법 블룸폰테인)
+    { code: "it", country: "이탈리아", capital: "로마", lat: 41.90, lon: 12.50, pop: 59 },
+    { code: "ke", country: "케냐", capital: "나이로비", lat: -1.29, lon: 36.82, pop: 56 },
+    { code: "mm", country: "미얀마", capital: "네피도", lat: 19.75, lon: 96.10, pop: 54 },  // 2006년 양곤에서 천도
+    { code: "co", country: "콜롬비아", capital: "보고타", lat: 4.71, lon: -74.07, pop: 53 },
+    { code: "kr", country: "대한민국", capital: "서울", lat: 37.57, lon: 126.98, pop: 52 },
+    { code: "sd", country: "수단", capital: "하르툼", lat: 15.50, lon: 32.56, pop: 50 },
+    { code: "ug", country: "우간다", capital: "캄팔라", lat: 0.35, lon: 32.58, pop: 50 },
+    { code: "es", country: "스페인", capital: "마드리드", lat: 40.42, lon: -3.70, pop: 48 },
+    { code: "dz", country: "알제리", capital: "알제", lat: 36.75, lon: 3.06, pop: 47 },
+    { code: "iq", country: "이라크", capital: "바그다드", lat: 33.31, lon: 44.37, pop: 46 },
+    { code: "ar", country: "아르헨티나", capital: "부에노스아이레스", lat: -34.60, lon: -58.38, pop: 46 },
+    { code: "af", country: "아프가니스탄", capital: "카불", lat: 34.53, lon: 69.17, pop: 43 },
+    { code: "ye", country: "예멘", capital: "사나", lat: 15.35, lon: 44.21, pop: 40 },
+    { code: "ca", country: "캐나다", capital: "오타와", lat: 45.42, lon: -75.70, pop: 39 },
+    { code: "pl", country: "폴란드", capital: "바르샤바", lat: 52.23, lon: 21.01, pop: 38 },
+    { code: "ma", country: "모로코", capital: "라바트", lat: 34.02, lon: -6.84, pop: 38 },
+    { code: "ua", country: "우크라이나", capital: "키이우", lat: 50.45, lon: 30.52, pop: 38 },
+    { code: "ao", country: "앙골라", capital: "루안다", lat: -8.84, lon: 13.23, pop: 38 },
+    { code: "uz", country: "우즈베키스탄", capital: "타슈켄트", lat: 41.30, lon: 69.24, pop: 36 },
+    { code: "my", country: "말레이시아", capital: "쿠알라룸푸르", lat: 3.14, lon: 101.69, pop: 35 },
+    { code: "mz", country: "모잠비크", capital: "마푸투", lat: -25.97, lon: 32.57, pop: 35 },
+    { code: "gh", country: "가나", capital: "아크라", lat: 5.60, lon: -0.19, pop: 34 },
+    { code: "pe", country: "페루", capital: "리마", lat: -12.05, lon: -77.04, pop: 34 },
+    { code: "sa", country: "사우디아라비아", capital: "리야드", lat: 24.71, lon: 46.68, pop: 33 },
+    { code: "mg", country: "마다가스카르", capital: "안타나나리보", lat: -18.88, lon: 47.51, pop: 32 },
+    { code: "ci", country: "코트디부아르", capital: "야무수크로", lat: 6.83, lon: -5.29, pop: 32 },  // 공식 수도(최대도시는 아비장)
+    { code: "np", country: "네팔", capital: "카트만두", lat: 27.72, lon: 85.32, pop: 30 },
+    { code: "cm", country: "카메룬", capital: "야운데", lat: 3.85, lon: 11.50, pop: 29 },
+    { code: "ve", country: "베네수엘라", capital: "카라카스", lat: 10.48, lon: -66.90, pop: 28 },
+    { code: "ne", country: "니제르", capital: "니아메", lat: 13.51, lon: 2.11, pop: 27 },
+    { code: "au", country: "호주", capital: "캔버라", lat: -35.28, lon: 149.13, pop: 27 },
+    { code: "kp", country: "북한", capital: "평양", lat: 39.02, lon: 125.75, pop: 26 },
+    { code: "sy", country: "시리아", capital: "다마스쿠스", lat: 33.51, lon: 36.29, pop: 24 },
+    { code: "ml", country: "말리", capital: "바마코", lat: 12.64, lon: -8.00, pop: 24 },
+    { code: "bf", country: "부르키나파소", capital: "와가두구", lat: 12.37, lon: -1.52, pop: 23 },
+    { code: "lk", country: "스리랑카", capital: "콜롬보", lat: 6.93, lon: 79.86, pop: 23 },  // 공식 수도는 스리자야와르데네푸라코테 — 입력 편의상 실질 수도로
+    { code: "mw", country: "말라위", capital: "릴롱궤", lat: -13.96, lon: 33.79, pop: 21 },
+    { code: "zm", country: "잠비아", capital: "루사카", lat: -15.39, lon: 28.32, pop: 21 },
+    { code: "kz", country: "카자흐스탄", capital: "아스타나", lat: 51.17, lon: 71.45, pop: 20 },  // 2019~2022 누르술탄으로 개칭됐다 환원
+    { code: "td", country: "차드", capital: "은자메나", lat: 12.13, lon: 15.06, pop: 20 },
+    { code: "cl", country: "칠레", capital: "산티아고", lat: -33.45, lon: -70.67, pop: 19 },
+    { code: "ro", country: "루마니아", capital: "부쿠레슈티", lat: 44.43, lon: 26.10, pop: 19 },
+    { code: "so", country: "소말리아", capital: "모가디슈", lat: 2.05, lon: 45.32, pop: 19 },
+    { code: "sn", country: "세네갈", capital: "다카르", lat: 14.72, lon: -17.47, pop: 18 },
+    { code: "gt", country: "과테말라", capital: "과테말라시티", lat: 14.63, lon: -90.51, pop: 18 },
+    { code: "nl", country: "네덜란드", capital: "암스테르담", lat: 52.37, lon: 4.90, pop: 18 },
+    { code: "ec", country: "에콰도르", capital: "키토", lat: -0.18, lon: -78.47, pop: 18 },
+    { code: "kh", country: "캄보디아", capital: "프놈펜", lat: 11.56, lon: 104.92, pop: 17 },
+    { code: "zw", country: "짐바브웨", capital: "하라레", lat: -17.83, lon: 31.05, pop: 16 },
+    { code: "gn", country: "기니", capital: "코나크리", lat: 9.64, lon: -13.58, pop: 15 },
+    { code: "bj", country: "베냉", capital: "포르토노보", lat: 6.50, lon: 2.62, pop: 14 },  // 공식 수도(정부 소재지는 코토누)
+    { code: "rw", country: "르완다", capital: "키갈리", lat: -1.94, lon: 30.06, pop: 14 },
+    { code: "bi", country: "부룬디", capital: "기테가", lat: -3.43, lon: 29.93, pop: 14 },  // 2019년 부줌부라에서 천도
+    { code: "bo", country: "볼리비아", capital: "라파스", lat: -16.50, lon: -68.15, pop: 12 },  // 행정수도(헌법상 수도는 수크레)
+    { code: "tn", country: "튀니지", capital: "튀니스", lat: 36.80, lon: 10.18, pop: 12 },
+    { code: "ht", country: "아이티", capital: "포르토프랭스", lat: 18.54, lon: -72.34, pop: 12 },
+    { code: "be", country: "벨기에", capital: "브뤼셀", lat: 50.85, lon: 4.35, pop: 12 },
+    { code: "jo", country: "요르단", capital: "암만", lat: 31.95, lon: 35.93, pop: 11 },
+    { code: "ss", country: "남수단", capital: "주바", lat: 4.85, lon: 31.58, pop: 11 },
+    { code: "do", country: "도미니카공화국", capital: "산토도밍고", lat: 18.49, lon: -69.93, pop: 11 },
+    { code: "cu", country: "쿠바", capital: "아바나", lat: 23.11, lon: -82.37, pop: 11 },
+    { code: "ae", country: "아랍에미리트", capital: "아부다비", lat: 24.45, lon: 54.38, pop: 11 },
+    { code: "hn", country: "온두라스", capital: "테구시갈파", lat: 14.07, lon: -87.19, pop: 11 },
+    { code: "cz", country: "체코", capital: "프라하", lat: 50.08, lon: 14.44, pop: 11 },
+    { code: "se", country: "스웨덴", capital: "스톡홀름", lat: 59.33, lon: 18.07, pop: 11 },
+    { code: "pg", country: "파푸아뉴기니", capital: "포트모르즈비", lat: -9.44, lon: 147.18, pop: 11 },
+    { code: "tj", country: "타지키스탄", capital: "두샨베", lat: 38.56, lon: 68.79, pop: 11 },
+    { code: "pt", country: "포르투갈", capital: "리스본", lat: 38.72, lon: -9.14, pop: 10 },
+    { code: "az", country: "아제르바이잔", capital: "바쿠", lat: 40.41, lon: 49.87, pop: 10 },
+    { code: "gr", country: "그리스", capital: "아테네", lat: 37.98, lon: 23.73, pop: 10 },
+    { code: "hu", country: "헝가리", capital: "부다페스트", lat: 47.50, lon: 19.04, pop: 10 },
+    { code: "tg", country: "토고", capital: "로메", lat: 6.13, lon: 1.22, pop: 9.5 },
+    { code: "il", country: "이스라엘", capital: "예루살렘", lat: 31.78, lon: 35.22, pop: 9.4 },  // 이스라엘이 선언한 수도 (국제적으로 지위 논쟁)
+    { code: "by", country: "벨라루스", capital: "민스크", lat: 53.90, lon: 27.57, pop: 9.2 },
+    { code: "at", country: "오스트리아", capital: "빈", lat: 48.21, lon: 16.37, pop: 9.1 },
+    { code: "ch", country: "스위스", capital: "베른", lat: 46.95, lon: 7.44, pop: 9.0 },
+  ];
+
+  const MAX_LIVES = 2;   // 시작 목숨
+
+  let score = 0;         // 맞힌 개수
+  let lives = MAX_LIVES;
+  let currentCountry = null;  // 현재 문제 나라
+  let lastCode = null;        // 직전 나라 (덱 이음매 연속 중복 방지)
+  let deck = [];              // 남은 출제 덱 (섞어놓고 앞에서부터 뽑아 씀)
+  let laps = 0;               // 세계일주 완주 횟수 (덱 한 바퀴 = 100개국)
+  let celebrating = false;    // 완주 연출 중 (리사이즈 등이 끼어들지 않게)
+  let answered = false;       // 이번 문제 채점 여부 (중복 채점 방지용)
+
+  // 화면 요소
+  const startScreen = document.getElementById("start-screen");
+  const quizScreen = document.getElementById("quiz-screen");
+  const resultScreen = document.getElementById("result-screen");
+  const answerInput = document.getElementById("answer-input");
+  const lapClear = document.getElementById("lap-clear");
+  const nameInput = document.getElementById("player-name");
+  const startRank = document.getElementById("start-rank");
+  const resultRank = document.getElementById("result-rank");
+
+  let playerName = localStorage.getItem("wcq_name") || "";   // 랭킹에 쓸 이름
+
+  // 비행 레이어 요소
+  const planeEl = document.getElementById("plane");
+  const pinEl = document.getElementById("pin");
+  const trailEl = document.getElementById("trail");
+
+  // ── 블럭 세계지도 ─────────────────────────
+  const MAP_COLS = 120, MAP_ROWS = 60, CELL = 14;
+  const WORLD_W = MAP_COLS * CELL, WORLD_H = MAP_ROWS * CELL;
+  // 저해상도 육지 격자 ( . 바다 / g 초원 / d 사막 / i 빙하 )
+  const WORLD_GRID = `
+........................................................................................................................
+........................................................................................................................
+...............................gggiggggd..ddgiiiiii.....................................................................
+............................gidddii...iiiiiiiiiiiiiii...........ggggg......................d............................
+....................dddd..g.gi.gd....gggiiiiiiiiiiiig.......................................ddddd.......................
+..................dddd..d.dgd.ddd........giiiiiiiiigg.........................g........ddddddddddddg.dg.................
+......ddgd...........dddgg..d.dddgddg.....giiiiiiig................ggg............ggggggggdggddddgggggddggggggddd.......
+dd...ggggggggggggdgddgddggggddddg.ggdd....giiiiii................gggggggg..gggggggggggggggggggggggggggggggdggggggggddddd
+.....ggggggggggggdggggddddddddddd..ddd.....iiig.....gdd........gggg.ggggggggggggggggggggggggggggggggggggggdggggggggggggg
+....ggggggggggggggggggggddddd.....dd........di................gggg.ggggggggggggggggggggggggggggggggggggggggggggg.ggggg..
+.......gg.....ggggggggggggggg.....dddgd...................g...g.gg..ggggggggggggggggggggggggggggggggggggggg......g......
+................gggggggggggggggg..gggggg.................gg....g...ggggggggggggggggggggggggggggggggggggggg......gg......
+.................gggggggggggggggg.ggggggg................ggg.gggggggggggggggggggggggddgggggggggggggggggggggg....g.......
+..................ggggdddggggggggggggg...g.................ggggggggggggggggddddddddddddggddddgggggddgggggggg............
+...................gdggddgggggggggggggg....................ggggggggggggggggdggdddddddddgdddddddddddggggggg..............
+...................ddddddgggggggggggg....................ggggg.gggggg....ggg.diddddddddgdddddddddddgggggg..g............
+...................dddddgdggggggggg......................ddd.....dgggggdddggg.ddddddddddddddddddddggggg.................
+...................ddddddddgggggggg......................ddd.......g.dddddddg.dddddddddddddddgdddgggg.g...g.............
+....................dddddddggggggg........................dddddd........ddddddddddddgddddddddggggggg..g.gg..............
+.....................ddddddgggggg........................ddddddddd.dd.gdddidddddddddggddddddggggggggg...................
+......................dgdddg....g.......................ddddddddddiiiidddddd.ddddddddgggdddgggggggggg...................
+......................d.gddg...........................iiididdddddiiddidddddg.d.ddddgggggggggggggggg....................
+.........................dd.....gg....................dddddddddddddddidd.dddiddd...dddgdgggggggggg......................
+.........................ggg.gg.....g.................gddiiddddiiiddddddddddddi.....ddgdg..gggg.g.......................
+...........................gggg.......................dddddddddiiiddddddd.dddd......ddd....ggggg....g...................
+..............................gg......................ggggddddddgddddddggddd.........dd......ggg....g...................
+...............................g...gggg................ggggggggggggggggggdddd........gg........g........................
+..................................ggggggg...............gggggggggggggggggdddd.........g......g.......g..................
+..................................ggggggggg..............g....gggggggggddddd................gg....g.....................
+.................................ggggggggggd...................gggggggggddg..................gg.ggg.....................
+.................................gggggggggggg..................gggggggggdd...................gg.ggg.g...g...............
+.................................ggggggggggggggg................gggggggdd.....................g..........ggg............
+.................................dggggggggggggdd................ggggggddg.......................gg........ggg...........
+..................................dgggggggggdddg................ggggggdgg...............................................
+..................................ddggggggggddg.................ddgdgdddgg..g..........................dd..g............
+....................................ddggggdgddg.................dddddddgg..dg........................ddddd.dg...........
+....................................dddgggdddgg.................dddddddg...d........................ddddddddd...........
+....................................ddgggggggg...................ddddddg..dd......................dddddddddddd..........
+....................................ddgggggg.....................dddddd...........................ddddddddddddd.........
+....................................ddgggggg.....................dddddg...........................ddddddddddddd.........
+....................................dddgggg.......................dddd............................gddddddddddgg.........
+....................................gddggg.........................................................g.....gdddg..........
+...................................gddggg..................................................................gg.........g.
+...................................gddd...............................................................................g.
+....................................dd..................................................................................
+...................................gdd..................................................................................
+...................................gd...................................................................................
+....................................d...................................................................................
+........................................................................................................................
+........................................................................................................................
+........................................................................................................................
+........................................................................................................................
+......................................id...................................ggiidgg.....gidiiiggiggiggiiiiiddg...........
+...................................dddid.................ddddddggigdddddgiiiiiiidddggddiiiidiiiiggiiiiidddiiiiiiig......
+..........................iiidid.ddddddd.............ddiiiiiiiiiiiidddidiiiiiiddd..ggiiiiidddgggiiiiiiiddiiiiiiiiid.....
+..........diiiiddiiggddddddddddigggdggddg.........gggggggiddidiiiiiidiidddididddddggggddddddddddiiiddddddddddidgdd......
+iiiiiggggggggggggggggdddddddddddgggg..g.....ggggggggggggdgidiiiidddddddddddddddddddddddddddddddddddddddddddddddddgdigggg
+gggggggggggggggggggggggggdddddgggggggggggggggg..gggggggddiddggggggggggddddddddddddddddddddddddddgdggdidggdddddgggggggggg
+ggdg.ggggggggggggggggggggddiidgggggg.ggggggggiiiiigggidgddddddddddddddddddddddggggggggggggggdddgggggggddddddddiiddgggggg
+iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiddiiiiiiiiiiiiii`
+    .replace(/^\n/, "").split("\n");
+
+  const cameraEl = document.getElementById("camera");
+  const mapCanvas = document.getElementById("map");
+  const mapCtx = mapCanvas.getContext("2d");
+  mapCanvas.width = WORLD_W;
+  mapCanvas.height = WORLD_H;
+  trailEl.setAttribute("width", WORLD_W);
+  trailEl.setAttribute("height", WORLD_H);
+  trailEl.setAttribute("viewBox", `0 0 ${WORLD_W} ${WORLD_H}`);
+
+  const PALETTE = {
+    ".": ["#173a5e", "#1a3f66"],   // 바다
+    "g": ["#4f9d5b", "#58a866"],   // 초원
+    "d": ["#c9a24b", "#bd9744"],   // 사막
+    "i": ["#dbe6ee", "#eaf1f6"],   // 빙하
+  };
+  function drawMap() {
+    mapCtx.clearRect(0, 0, WORLD_W, WORLD_H);
+    for (let r = 0; r < MAP_ROWS; r++) {
+      const row = WORLD_GRID[r] || "";
+      for (let c = 0; c < MAP_COLS; c++) {
+        const shades = PALETTE[row[c]] || PALETTE["."];
+        mapCtx.fillStyle = shades[(c + r) & 1];
+        mapCtx.fillRect(c * CELL, r * CELL, CELL - 1.2, CELL - 1.2); // -1.2: 블럭 간격
+      }
+    }
+  }
+  drawMap();
+
+  // 등거리원통도법: 위경도 → 월드 좌표(px)
+  function project(lat, lon) {
+    return {
+      x: (lon + 180) / 360 * WORLD_W,
+      y: (90 - lat) / 180 * WORLD_H,
+    };
+  }
+
+  // ── 카메라 (월드 → 화면 변환, 줌/이동) ──
+  let cam = { s: 1, tx: 0, ty: 0 };
+  let midFlight = false;
+  let shake = { x: 0, y: 0 };   // 스크린 셰이크 오프셋
+  function applyCamera() {
+    cameraEl.style.transform =
+      `translate(${cam.tx + shake.x}px, ${cam.ty + shake.y}px) scale(${cam.s})`;
+  }
+  // 폭발 시 지도 흔들기
+  function screenShake(power = 16, ms = 450) {
+    const t0 = performance.now();
+    (function step(now) {
+      const k = 1 - (now - t0) / ms;
+      if (k > 0) {
+        shake.x = (Math.random() - 0.5) * power * 2 * k;
+        shake.y = (Math.random() - 0.5) * power * 2 * k;
+        applyCamera();
+        requestAnimationFrame(step);
+      } else {
+        shake.x = shake.y = 0;
+        applyCamera();
+      }
+    })(t0);
+  }
+  function worldToScreen(wx, wy) {
+    return { x: cam.tx + cam.s * wx, y: cam.ty + cam.s * wy };
+  }
+  function fitScale() {
+    return Math.min(window.innerWidth / WORLD_W, window.innerHeight / WORLD_H) * 0.98;
+  }
+  function focusCamera(fx, fy, s) {
+    cam.s = s;
+    cam.tx = window.innerWidth / 2 - s * fx;
+    cam.ty = window.innerHeight / 2 - s * fy;
+    applyCamera();
+  }
+  function overviewCamera() {
+    focusCamera(WORLD_W / 2, WORLD_H / 2, fitScale());
+  }
+  // 현재 시점에서 목표 월드좌표·배율로 부드럽게 이동 (완주 연출의 줌아웃)
+  function tweenCamera(toX, toY, toS, ms) {
+    const fromS = cam.s;
+    const fromX = (window.innerWidth / 2 - cam.tx) / cam.s;   // 지금 화면 중앙의 월드 좌표
+    const fromY = (window.innerHeight / 2 - cam.ty) / cam.s;
+    const t0 = performance.now();
+    (function step(now) {
+      const t = Math.min((now - t0) / ms, 1);
+      const e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      focusCamera(fromX + (toX - fromX) * e, fromY + (toY - fromY) * e, fromS + (toS - fromS) * e);
+      if (t < 1) requestAnimationFrame(step);
+    })(t0);
+  }
+  overviewCamera();
+
+  let lastPos = null;          // 직전 비행기 위치 (px)
+  let flightAnim = null;       // 진행 중인 애니메이션 id
+  let destCountry = null;      // 현재 도착 나라 (핀 표시용)
+
+  // 비행기: 화면 좌표(x,y)에 중심 맞춤 (크기 일정)
+  function placePlane(x, y, rotDeg) {
+    planeEl.style.transform =
+      `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rotDeg}deg)`;
+  }
+  // 핀: 생각 말풍선처럼 도시 지점(x,y)의 오른쪽 위로 비켜 띄운다 (비행기를 안 가리게)
+  // 말풍선 꼬리(작은 점)가 왼쪽 아래 = 비행기 쪽을 가리키도록 bottom-left 기준으로 배치
+  function placePin(x, y) {
+    pinEl.style.transform = `translate(${x + 24}px, ${y - 14}px) translate(0, -100%)`;
+  }
+  // 비행 종료 후: 도착지에 줌인 + 핀(국기·나라명) 표시
+  function idleAtDest() {
+    if (!destCountry) return;
+    const E = project(destCountry.lat, destCountry.lon);
+    focusCamera(E.x, E.y, fitScale() * 3.0);
+    const s = worldToScreen(E.x, E.y);
+    // 도착 시점에만 핀 내용(국기+나라명) 채움
+    pinEl.innerHTML =
+      `<div class="pin-card">
+         <img class="pin-flag" src="https://flagcdn.com/w160/${destCountry.code}.png" alt="${destCountry.country} 국기">
+         <div class="pin-name">${destCountry.country}</div>
+       </div>
+       <div class="pin-tail"><span></span><span></span></div>`;
+    placePin(s.x, s.y);
+    pinEl.classList.add("show");
+    // 도착지에 비행기도 그대로 세워둔다 (말풍선은 오른쪽 위로 비켜 있어 안 가림)
+    placePlane(s.x, s.y, -18);
+    planeEl.style.opacity = "1";
+    // 새 나라 도착 → 이전 피드백 지우고 깨끗하게 답 입력 대기
+    const fb = document.getElementById("feedback");
+    fb.textContent = "";
+    fb.className = "feedback";
+  }
+
+  // 시작점 S → 도착점 E 로 비행기가 곡선을 그리며 날아감 (카메라 줌인/줌아웃)
+  function flyTo(q) {
+    cancelAnimationFrame(flightAnim);
+    const E = project(q.lat, q.lon);
+    const S = lastPos || { x: WORLD_W / 2, y: WORLD_H * 0.45 };
+    destCountry = q;
+    midFlight = true;
+    planeEl.style.opacity = "1";
+
+    // 핀은 도착했을 때(idleAtDest)만 채운다 → 출발 중 다음 나라 노출 방지.
+    // 국기만 미리 로드해 도착 시 팝인 지연 방지.
+    new Image().src = `https://flagcdn.com/w160/${q.code}.png`;
+    pinEl.classList.remove("show");
+    pinEl.innerHTML = "";   // 출발 즉시 비워 이전 핀 잔상/다음 나라 노출 방지
+
+    // 위로 볼록한 호(arc): 제어점을 두 점 중앙에서 위로 (월드 좌표)
+    const dist = Math.hypot(E.x - S.x, E.y - S.y);
+    const C = {
+      x: (S.x + E.x) / 2,
+      y: (S.y + E.y) / 2 - Math.min(dist * 0.3, 300) - 40,
+    };
+
+    // 궤적 (월드 좌표, 확대해도 선 굵기 일정)
+    trailEl.innerHTML =
+      `<path id="trail-path" d="M ${S.x} ${S.y} Q ${C.x} ${C.y} ${E.x} ${E.y}"
+             fill="none" stroke="#7dd3fc" stroke-width="3" stroke-linecap="round"
+             stroke-dasharray="10 12" vector-effect="non-scaling-stroke" opacity="0.95"/>`;
+    const trailPath = document.getElementById("trail-path");
+    const pathLen = trailPath.getTotalLength();
+    trailPath.style.strokeDashoffset = pathLen;
+
+    // 카메라 배율: 양끝은 확대(zoom), 중간은 축소(cruise)해서 액티비티 부여
+    const fit = fitScale();
+    const zoomScale = fit * 3.0;
+    const cruiseScale = Math.max(
+      fit * 0.9,
+      Math.min(zoomScale * 0.85, (Math.min(window.innerWidth, window.innerHeight) * 0.62) / (dist + 1))
+    );
+
+    const bezier = (t, a, b, c) =>
+      (1 - t) * (1 - t) * a + 2 * (1 - t) * t * b + t * t * c;
+    const dBezier = (t, a, b, c) =>
+      2 * (1 - t) * (b - a) + 2 * t * (c - b);
+    const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+    const DURATION = 1800;
+    const t0 = performance.now();
+
+    function frame(now) {
+      const raw = Math.min((now - t0) / DURATION, 1);
+      const t = easeInOut(raw);
+
+      // 비행기 월드 좌표
+      const wx = bezier(t, S.x, C.x, E.x);
+      const wy = bezier(t, S.y, C.y, E.y);
+      const dx = dBezier(t, S.x, C.x, E.x);
+      const dy = dBezier(t, S.y, C.y, E.y);
+
+      // 카메라: 경로 따라 이동 + 중간에 줌아웃
+      const focusX = S.x + (E.x - S.x) * t;
+      const focusY = S.y + (E.y - S.y) * t;
+      const s = zoomScale + (cruiseScale - zoomScale) * Math.sin(Math.PI * raw);
+      focusCamera(focusX, focusY, s);
+
+      // 비행기 화면 좌표 (카메라 반영, 크기 일정) — ✈️ 기본 북동(-45°) 보정 +45°
+      const sc = worldToScreen(wx, wy);
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI + 45;
+      placePlane(sc.x, sc.y, angle);
+
+      trailPath.style.strokeDashoffset = pathLen * (1 - raw);
+
+      if (raw < 1) {
+        flightAnim = requestAnimationFrame(frame);
+      } else {
+        lastPos = E;
+        midFlight = false;
+        idleAtDest();  // 도착지 줌인 + 핀 표시
+      }
+    }
+    flightAnim = requestAnimationFrame(frame);
+  }
+
+  // ── 랭킹 (온라인 공용 / 미설정·실패 시 로컬 폴백) ────
+  // ▼▼ Supabase 프로젝트를 만들고 이 두 줄만 채우면 전 세계 공용 랭킹이 된다.
+  //    비워두면 이 브라우저에만 저장되는 로컬 랭킹으로 동작한다.
+  //    셋업 방법(테이블 SQL 포함)은 CLAUDE.md "온라인 랭킹 셋업" 참고.
+  const RANK = {
+    url: "",   // 예: https://abcdefgh.supabase.co
+    key: "",   // anon public key (공개돼도 되는 키)
+  };
+  // ▲▲
+  const rankOnline = () => !!(RANK.url && RANK.key);
+  const rankHeaders = () => ({ apikey: RANK.key, Authorization: `Bearer ${RANK.key}` });
+
+  // 이름 정리: 제어문자·꺾쇠 제거, 공백 정리, 12자 제한
+  function cleanName(s) {
+    return (s || "").replace(/[\u0000-\u001f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 12);
+  }
+
+  // 로컬 기록 { 이름: 최고점 }
+  function localScores() {
+    try { return JSON.parse(localStorage.getItem("wcq_scores") || "{}"); } catch { return {}; }
+  }
+  function localBest(name) { return localScores()[name] ?? -1; }
+  function localSubmit(name, score) {
+    const s = localScores();
+    if (score > (s[name] ?? -1)) s[name] = score;
+    localStorage.setItem("wcq_scores", JSON.stringify(s));
+  }
+  function localTop(n) {
+    return Object.entries(localScores())
+      .map(([name, score]) => ({ name, score }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, n);
+  }
+
+  // 점수 전송 (온라인이어도 로컬엔 항상 남긴다 → 오프라인/장애 시 폴백)
+  async function submitScore(name, score) {
+    localSubmit(name, score);
+    if (!rankOnline()) return;
+    const r = await fetch(`${RANK.url}/rest/v1/scores`, {
+      method: "POST",
+      headers: { ...rankHeaders(), "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ name, score }),
+    });
+    if (!r.ok) throw new Error(`랭킹 등록 실패 ${r.status}`);
+  }
+  // 이름별 최고점 TOP N (서버의 leaderboard 뷰가 이름별 max를 이미 집계해준다)
+  async function topScores(n = 10) {
+    if (!rankOnline()) return { rows: localTop(n), online: false };
+    const r = await fetch(
+      `${RANK.url}/rest/v1/leaderboard?select=name,score,at&order=score.desc,at.asc&limit=${n}`,
+      { headers: rankHeaders() });
+    if (!r.ok) throw new Error(`랭킹 조회 실패 ${r.status}`);
+    return { rows: await r.json(), online: true };
+  }
+
+  // 랭킹 목록 그리기. 이름은 반드시 textContent로 (공용 랭킹이라 XSS 방지)
+  async function renderRank(box, me) {
+    const list = box.querySelector(".rank-list");
+    const note = box.querySelector(".rank-note");
+    list.innerHTML = `<div class="rank-empty">불러오는 중…</div>`;
+    note.textContent = "";
+
+    let rows, online = false, failed = false;
+    try { ({ rows, online } = await topScores(10)); }
+    catch (e) { rows = localTop(10); failed = true; console.warn(e); }
+
+    note.textContent = failed ? "서버 연결 실패 — 내 기록만" : (online ? "" : "이 브라우저 기록");
+    list.innerHTML = "";
+    if (!rows.length) {
+      list.innerHTML = `<div class="rank-empty">아직 기록이 없다. 1등 해보자!</div>`;
+      return;
+    }
+    rows.forEach((r, i) => {
+      const row = document.createElement("div");
+      row.className = "rank-row" + (r.name === me ? " me" : "");
+      const no = document.createElement("span");
+      no.className = "rank-no";
+      no.textContent = i < 3 ? ["🥇", "🥈", "🥉"][i] : String(i + 1);
+      const nm = document.createElement("span");
+      nm.className = "rank-name";
+      nm.textContent = r.name;                 // ← innerHTML 쓰지 말 것
+      const sc = document.createElement("span");
+      sc.className = "rank-score";
+      sc.textContent = r.score;
+      row.append(no, nm, sc);
+      list.appendChild(row);
+    });
+  }
+
+  // ── 사운드 (WebAudio 합성음, 외부 파일 없음) ───────
+  const sfxBtn = document.getElementById("sfx-btn");
+  let actx = null;                 // 첫 사용자 클릭 이후에 생성 (브라우저 정책)
+  let noiseBuf = null;
+  let muted = localStorage.getItem("wcq_muted") === "1";
+
+  function ac() {
+    if (muted) return null;
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      actx = new AC();
+    }
+    if (actx.state === "suspended") actx.resume();
+    return actx;
+  }
+  function getNoise(ctx) {
+    if (!noiseBuf) {
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    return noiseBuf;
+  }
+  // 톤: 주파수 f0 → f1 로 미끄러지며 감쇠
+  function tone(f0, f1, dur, vol = .2, type = "sine", when = 0) {
+    const ctx = ac(); if (!ctx) return;
+    const t = ctx.currentTime + when;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + .012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + dur + .03);
+  }
+  // 노이즈: 로우패스 컷오프를 c0 → c1 로 쓸며 감쇠 (쉬익 / 쾅)
+  function noiseHit(dur, vol, c0, c1, q = 1, when = 0) {
+    const ctx = ac(); if (!ctx) return;
+    const t = ctx.currentTime + when;
+    const s = ctx.createBufferSource();
+    s.buffer = getNoise(ctx); s.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = "lowpass"; f.Q.value = q;
+    f.frequency.setValueAtTime(c0, t);
+    f.frequency.exponentialRampToValueAtTime(Math.max(c1, 20), t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(ctx.destination);
+    s.start(t); s.stop(t + dur + .03);
+  }
+  const sfx = {
+    launch() { noiseHit(.7, .18, 2200, 300); tone(210, 80, .6, .10, "sawtooth"); },
+    warn()   { tone(1150, 1150, .07, .07, "square"); tone(1150, 1150, .07, .07, "square", .12); },
+    flare()  { noiseHit(.35, .16, 6000, 900); tone(880, 360, .25, .07, "triangle"); },
+    boom(k = 1) { noiseHit(.95 * k, .42 * k, 900, 55, .7); tone(150, 30, .85 * k, .3 * k, "sine"); },
+    pop()    { noiseHit(.3, .14, 5000, 600); tone(760, 190, .28, .06, "triangle"); },
+    // 완주 팡파르 (도-미-솔-도 상행 후 길게)
+    fanfare() {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, f, .45, .13, "triangle", i * .13));
+      tone(1046.5, 1046.5, 1.1, .1, "sine", .52);
+      tone(1567.98, 1567.98, 1.1, .05, "sine", .52);
+    },
+  };
+  function setMuted(v) {
+    muted = v;
+    localStorage.setItem("wcq_muted", v ? "1" : "0");
+    sfxBtn.textContent = v ? "🔇" : "🔊";
+  }
+  setMuted(muted);
+  sfxBtn.onclick = () => { setMuted(!muted); if (!muted) sfx.pop(); };
+
+  // ── 이펙트 (폭죽 / 미사일 / 플레어 / 폭발) ─────────
+  const fxCanvas = document.getElementById("fx");
+  const fxCtx = fxCanvas.getContext("2d");
+  let fxParticles = [];    // 입자 (불꽃·연기·파편)
+  let fxRings = [];        // 충격파 링
+  let flash = 0;           // 화면 섬광 세기 (0~1, 매 프레임 감쇠)
+  let missile = null;      // 진행 중 미사일 (없으면 null)
+  let fxRunning = false;
+
+  function sizeFx() {
+    fxCanvas.width = window.innerWidth;
+    fxCanvas.height = window.innerHeight;
+  }
+  sizeFx();
+
+  function ensureFxLoop() {
+    if (!fxRunning) { fxRunning = true; requestAnimationFrame(fxLoop); }
+  }
+
+  // 정답 폭죽
+  function spawnBurst() {
+    const cx = window.innerWidth * (0.2 + Math.random() * 0.6);
+    const cy = window.innerHeight * (0.18 + Math.random() * 0.32);
+    const hue = Math.floor(Math.random() * 360);
+    for (let i = 0; i < 48; i++) {
+      const ang = (Math.PI * 2 * i) / 48 + Math.random() * 0.12;
+      const sp = 2.5 + Math.random() * 4;
+      fxParticles.push({
+        x: cx, y: cy, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        life: 1, decay: 0.012 + Math.random() * 0.013, size: 2 + Math.random() * 2, grav: 0.055,
+        color: `hsl(${hue + Math.random() * 40}, 100%, ${62 + Math.random() * 14}%)`,
+      });
+    }
+    sfx.pop();
+    ensureFxLoop();
+  }
+  function launchFireworks() {
+    for (let b = 0; b < 3; b++) setTimeout(spawnBurst, b * 230);
+  }
+
+  // 완주 색종이: 화면 위에서 알록달록하게 쏟아진다
+  function spawnConfetti() {
+    for (let i = 0; i < 110; i++) {
+      fxParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: -20 - Math.random() * window.innerHeight * .5,
+        vx: (Math.random() - .5) * 2.6, vy: 1.5 + Math.random() * 3,
+        life: 1, decay: .0055 + Math.random() * .004,
+        size: 2.5 + Math.random() * 3, grav: .07, drag: .995,
+        color: `hsl(${Math.random() * 360}, 95%, ${62 + Math.random() * 20}%)`,
+      });
+    }
+    ensureFxLoop();
+  }
+
+  // 비행기에서 플레어(적외선 기만탄) 사출 → 미사일이 물 "기만점" 반환
+  function spawnFlares(x, y, ang) {
+    sfx.flare();
+    for (let i = 0; i < 14; i++) {
+      const a = ang + (Math.random() - .5) * 1.4;
+      const sp = 2.5 + Math.random() * 4;
+      fxParticles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 1, decay: .011 + Math.random() * .01, size: 3.4 + Math.random() * 2.6,
+        grav: .09, drag: .992,
+        color: `hsl(${30 + Math.random() * 22}, 100%, ${72 + Math.random() * 18}%)`,
+      });
+      if (i % 2 === 0) fxParticles.push({   // 플레어 연기
+        x, y, vx: Math.cos(a) * sp * .5, vy: Math.sin(a) * sp * .5,
+        life: .8, decay: .014, size: 4 + Math.random() * 3, grav: .01, growth: .25,
+        smoke: true, color: "#b6bcc8",
+      });
+    }
+    // 미사일이 쫓아갈 대표 기만점 (플레어 무리와 함께 흘러감)
+    return { x, y, vx: Math.cos(ang) * 5.4, vy: Math.sin(ang) * 5.4 };
+  }
+
+  // 작은 불티 (기만탄 스칠 때)
+  function sparkPuff(x, y) {
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 3.5;
+      fxParticles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: .8, decay: .04, size: 1.6 + Math.random() * 1.6, grav: .04,
+        color: `hsl(${40 + Math.random() * 20}, 100%, 78%)`,
+      });
+    }
+  }
+
+  // 미사일 폭발: 섬광 → 충격파 → 불덩이 → 파편 → 연기
+  // k = 규모 (1 = 명중, 0.6 = 플레어 유폭 같은 작은 폭발)
+  function explode(x, y, k = 1) {
+    sfx.boom(k);
+    flash = Math.max(flash, .6 * k);
+    fxRings.push({ x, y, r: 6,  vr: 11 * k, w: 20 * k, life: 1, decay: .024, color: "255,205,130" });
+    fxRings.push({ x, y, r: 3,  vr: 19 * k, w: 5,      life: 1, decay: .05,  color: "255,255,255" });
+
+    for (let i = 0; i < 52 * k; i++) {      // 불덩이 (안쪽 흰빛 → 바깥 주황)
+      const a = Math.random() * Math.PI * 2;
+      const sp = .6 + Math.random() * 9;
+      const hot = sp < 3;
+      fxParticles.push({
+        x, y, vx: Math.cos(a) * sp * k, vy: Math.sin(a) * sp * k,
+        life: 1, decay: .016 + Math.random() * .018,
+        size: ((hot ? 4.5 : 3) + Math.random() * 4) * k, grav: .03, drag: .935,
+        color: `hsl(${hot ? 42 + Math.random() * 10 : 8 + Math.random() * 22}, 100%, ${hot ? 74 : 50 + Math.random() * 12}%)`,
+      });
+    }
+    for (let i = 0; i < 26 * k; i++) {      // 파편 (빠르고 작고 멀리 튐)
+      const a = Math.random() * Math.PI * 2;
+      const sp = (5 + Math.random() * 9) * k;
+      fxParticles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 1, decay: .011 + Math.random() * .012, size: 1.2 + Math.random() * 1.4,
+        grav: .16, drag: .995,
+        color: `hsl(${Math.random() * 40}, 100%, ${70 + Math.random() * 20}%)`,
+      });
+    }
+    for (let i = 0; i < 20 * k; i++) {      // 연기 (부풀며 천천히 떠오름)
+      const a = Math.random() * Math.PI * 2;
+      const sp = .4 + Math.random() * 2.4;
+      fxParticles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - .5,
+        life: 1, decay: .006 + Math.random() * .006, size: (5 + Math.random() * 6) * k,
+        grav: -.012, drag: .96, growth: .45, smoke: true,
+        color: i % 3 ? "#8d94a3" : "#5f6675",
+      });
+    }
+  }
+
+  // 무작위 공해상(화면 가장자리)에서 목표(tx,ty)의 비행기로 미사일 발사
+  // fatal=false → 플레어에 속아 유폭(회피 성공) / fatal=true → 재포착 후 명중(격추)
+  function launchMissile(tx, ty, done, fatal = false) {
+    const side = Math.floor(Math.random() * 3);   // 0 위 / 1 왼 / 2 오른 (하단 UI 회피)
+    let sx, sy;
+    if (side === 0)      { sx = window.innerWidth * (.15 + Math.random() * .7); sy = -70; }
+    else if (side === 1) { sx = -70; sy = window.innerHeight * (.1 + Math.random() * .5); }
+    else                 { sx = window.innerWidth + 70; sy = window.innerHeight * (.1 + Math.random() * .5); }
+
+    // 처음엔 목표에서 일부러 빗나간 각도로 → 호밍하며 크게 휘어 들어온다
+    const off = (Math.random() < .5 ? -1 : 1) * (.55 + Math.random() * .35);
+    const now = performance.now();
+    missile = {
+      x: sx, y: sy, ang: Math.atan2(ty - sy, tx - sx) + off,
+      speed: 6.5, accel: .11, maxSpeed: 18, turn: .038,
+      home: { x: tx, y: ty },      // 회피 기동의 기준점 (도착지)
+      plane: { x: tx, y: ty },     // 실제 비행기 위치 (매 프레임 갱신)
+      phase: "chase",              // chase → decoyed → (회피 유폭 | reacquire → 명중)
+      decoy: null, fatal,
+      missDist: 110 + Math.random() * 80,   // 회피 시 이만큼 벌어진 뒤 유폭 (매번 다르게)
+      born: now, last: now, phaseAt: now, lastBeep: 0,
+      done,
+    };
+    document.body.classList.add("alarm");
+    sfx.launch();
+    ensureFxLoop();
+  }
+
+  // 격추(마지막 오답): 비행기에 명중 → 큰 폭발 + 강한 흔들림 + 비행기 소멸
+  function hitPlane(m) {
+    explode(m.x, m.y);
+    screenShake(24, 620);
+    document.body.classList.remove("alarm");
+    planeEl.style.opacity = "0";
+    const cb = m.done;
+    missile = null;
+    if (cb) setTimeout(cb, 620);   // 폭발을 좀 보여주고 결과 화면으로
+  }
+
+  // 회피 성공(평소 오답): 미사일이 플레어를 물고 비행기에서 떨어진 곳에서 유폭
+  function evadeMissile(m) {
+    explode(m.x, m.y, .6);
+    screenShake(11, 340);
+    document.body.classList.remove("alarm");
+    const cb = m.done;
+    missile = null;                // 비행기는 그대로 살아서 다음 나라로 출발
+    if (cb) setTimeout(cb, 520);
+  }
+
+  // 록온 조준선 (비행기 주변, 가까울수록 조여든다)
+  function drawLockOn(x, y, dist, now) {
+    const close = Math.max(0, Math.min(1, 1 - dist / 650));
+    const r = 56 - 24 * close;
+    const a = .3 + .5 * (.5 + .5 * Math.sin(now / (90 - close * 45)));
+    fxCtx.save();
+    fxCtx.translate(x, y);
+    fxCtx.strokeStyle = `rgba(248,113,113,${a})`;
+    fxCtx.lineWidth = 2;
+    fxCtx.beginPath(); fxCtx.arc(0, 0, r * .62, 0, Math.PI * 2); fxCtx.stroke();
+    fxCtx.rotate(now / 700);
+    const b = r * .72, len = 11;
+    for (let i = 0; i < 4; i++) {          // 네 귀퉁이 브래킷
+      fxCtx.rotate(Math.PI / 2);
+      fxCtx.beginPath();
+      fxCtx.moveTo(b - len, b); fxCtx.lineTo(b, b); fxCtx.lineTo(b, b - len);
+      fxCtx.stroke();
+    }
+    fxCtx.restore();
+  }
+
+  function updateMissile(now) {
+    const m = missile;
+    const dt = Math.min((now - m.last) / 16.667, 3);   // 60fps 기준 프레임 배수
+    m.last = now;
+    const age = now - m.born;
+    const et = age / 1000;
+
+    // 비행기 회피 기동: 좌우로 지그재그 + 뱅크(기울기)
+    m.plane.x = m.home.x + Math.sin(et * 3.4) * 30;
+    m.plane.y = m.home.y + Math.sin(et * 2.3 + 1) * 15;
+    placePlane(m.plane.x, m.plane.y, -18 + Math.cos(et * 3.4) * 26);
+
+    // 조준 목표: 추격 중엔 비행기, 기만당했으면 플레어
+    let tgt = m.plane;
+    if (m.phase === "decoyed" && m.decoy) {
+      m.decoy.x += m.decoy.vx * dt;
+      m.decoy.y += m.decoy.vy * dt;
+      m.decoy.vy += .08 * dt;
+      tgt = m.decoy;
+    }
+
+    // 유도: 선회율 제한을 둔 조향 → 직선이 아니라 부드러운 호를 그린다
+    const want = Math.atan2(tgt.y - m.y, tgt.x - m.x);
+    const diff = ((want - m.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    const lim = m.turn * dt;
+    m.ang += Math.max(-lim, Math.min(lim, diff));
+    m.speed = Math.min(m.maxSpeed, m.speed + m.accel * dt);
+    m.x += Math.cos(m.ang) * m.speed * dt;
+    m.y += Math.sin(m.ang) * m.speed * dt;
+
+    const dist = Math.hypot(m.plane.x - m.x, m.plane.y - m.y);
+
+    // 경고음: 가까울수록 빨라진다
+    if (now - m.lastBeep > Math.max(130, Math.min(dist * 1.6, 480))) {
+      m.lastBeep = now; sfx.warn();
+    }
+
+    // 배기 화염 + 연기 자취
+    const bx = m.x - Math.cos(m.ang) * 24, by = m.y - Math.sin(m.ang) * 24;
+    for (let i = 0; i < 2; i++) fxParticles.push({
+      x: bx, y: by, vx: (Math.random() - .5) * .9 - Math.cos(m.ang) * .8,
+      vy: (Math.random() - .5) * .9 - Math.sin(m.ang) * .8,
+      life: .85, decay: .06, size: 2.5 + Math.random() * 2.5, grav: 0, drag: .9,
+      color: `hsl(${20 + Math.random() * 28}, 100%, ${68 + Math.random() * 20}%)`,
+    });
+    if (Math.random() < .85) fxParticles.push({
+      x: m.x - Math.cos(m.ang) * 30, y: m.y - Math.sin(m.ang) * 30,
+      vx: (Math.random() - .5) * .5, vy: (Math.random() - .5) * .5,
+      life: .75, decay: .012, size: 3.5 + Math.random() * 2.5, grav: -.005,
+      growth: .28, smoke: true, color: "#aab1bf",
+    });
+
+    // ── 페이즈 전환 ──
+    if (m.phase === "chase") {
+      if (dist < 300 && age > 250) {                        // 플레어 사출 → 미사일 기만
+        const side = Math.random() < .5 ? -1 : 1;
+        const away = Math.atan2(m.plane.y - m.y, m.plane.x - m.x) + side * (1.15 + Math.random() * .3);
+        m.decoy = spawnFlares(m.plane.x, m.plane.y, away);
+        m.phase = "decoyed"; m.turn = .055; m.phaseAt = now;
+      } else if (dist < 40) {                               // 플레어 전에 붙어버린 예외
+        m.fatal ? hitPlane(m) : evadeMissile(m); return;
+      }
+    } else if (m.phase === "decoyed") {
+      const dd = Math.hypot(m.decoy.x - m.x, m.decoy.y - m.y);
+      const reached = dd < 38 || now - m.phaseAt > 620;
+      if (!m.fatal) {
+        // 회피 성공: 비행기 옆을 스쳐 지나 충분히 멀어진 뒤에 유폭해야 "빗나갔다"로 읽힌다
+        if ((reached && dist > m.missDist) || now - m.phaseAt > 1300) { evadeMissile(m); return; }
+      } else if (reached) {
+        sparkPuff(m.decoy.x, m.decoy.y);                    // 마지막 오답만 재포착
+        m.phase = "reacquire"; m.turn = .14; m.maxSpeed = 20; m.phaseAt = now;
+      }
+    } else if (m.phase === "reacquire") {
+      // 시간이 갈수록 더 급하게 선회 → 비행기 주위를 맴돌다 못 맞히는 일 방지
+      m.turn = Math.min(.34, m.turn + .002 * dt);
+      if (dist < 38) { hitPlane(m); return; }              // 급선회로 되돌아와 명중
+      if (now - m.phaseAt > 1500 || age > 5000) {          // 오래 끌면 비행기 자리에서 폭발
+        m.x = m.plane.x; m.y = m.plane.y;
+        hitPlane(m); return;
+      }
+    }
+
+    // 플레어에 속아 있는 동안엔 록온이 풀린 상태 → 조준선 안 그림
+    if (m.phase !== "decoyed") drawLockOn(m.plane.x, m.plane.y, dist, now);
+
+    // ── 미사일 본체 ──
+    fxCtx.save();
+    fxCtx.translate(m.x, m.y);
+    fxCtx.rotate(m.ang);
+    const fl = 18 + Math.random() * 16;                     // 흔들리는 배기 화염
+    const grd = fxCtx.createLinearGradient(-24, 0, -24 - fl, 0);
+    grd.addColorStop(0, "rgba(255,244,190,.95)");
+    grd.addColorStop(.4, "rgba(255,150,45,.75)");
+    grd.addColorStop(1, "rgba(255,70,0,0)");
+    fxCtx.fillStyle = grd;
+    fxCtx.beginPath();
+    fxCtx.moveTo(-24, -4.5); fxCtx.lineTo(-24 - fl, 0); fxCtx.lineTo(-24, 4.5);
+    fxCtx.closePath(); fxCtx.fill();
+
+    fxCtx.shadowBlur = 14; fxCtx.shadowColor = "rgba(248,113,113,.9)";
+    fxCtx.fillStyle = "#e5e7eb";                            // 동체
+    fxCtx.beginPath();
+    fxCtx.moveTo(-24, -4); fxCtx.lineTo(6, -4); fxCtx.lineTo(6, 4); fxCtx.lineTo(-24, 4);
+    fxCtx.closePath(); fxCtx.fill();
+    fxCtx.fillStyle = "#ef4444";                            // 탄두
+    fxCtx.beginPath();
+    fxCtx.moveTo(6, -4); fxCtx.lineTo(17, 0); fxCtx.lineTo(6, 4);
+    fxCtx.closePath(); fxCtx.fill();
+    fxCtx.shadowBlur = 0;
+    fxCtx.fillStyle = "#9ca3af";                            // 꼬리날개 + 카나드
+    fxCtx.beginPath();
+    fxCtx.moveTo(-24, -4); fxCtx.lineTo(-32, -11); fxCtx.lineTo(-17, -4); fxCtx.closePath();
+    fxCtx.moveTo(-24, 4);  fxCtx.lineTo(-32, 11);  fxCtx.lineTo(-17, 4);  fxCtx.closePath();
+    fxCtx.moveTo(-1, -4);  fxCtx.lineTo(-7, -9);   fxCtx.lineTo(3, -4);   fxCtx.closePath();
+    fxCtx.moveTo(-1, 4);   fxCtx.lineTo(-7, 9);    fxCtx.lineTo(3, 4);    fxCtx.closePath();
+    fxCtx.fill();
+    fxCtx.restore();
+  }
+
+  function fxLoop(now) {
+    now = now || performance.now();
+    fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+
+    // 물리 갱신 (항력 + 중력 + 팽창)
+    for (const p of fxParticles) {
+      const drag = p.drag ?? .985;
+      p.vx *= drag;
+      p.vy = p.vy * drag + (p.grav ?? .055);
+      p.x += p.vx; p.y += p.vy;
+      if (p.growth) p.size += p.growth;
+      p.life -= p.decay;
+    }
+    fxParticles = fxParticles.filter(p => p.life > 0);
+
+    // 1) 연기는 일반 합성으로 먼저 (뒤에 깔린다)
+    for (const p of fxParticles) {
+      if (!p.smoke) continue;
+      fxCtx.globalAlpha = Math.max(p.life, 0) * .22;
+      fxCtx.fillStyle = p.color;
+      fxCtx.beginPath();
+      fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      fxCtx.fill();
+    }
+
+    // 2) 불꽃·파편은 가산 합성으로 (겹칠수록 하얗게 타오름)
+    fxCtx.globalCompositeOperation = "lighter";
+    for (const p of fxParticles) {
+      if (p.smoke) continue;
+      fxCtx.globalAlpha = Math.max(p.life, 0) * .8;   // 겹쳐도 하얗게 날아가지 않게
+      fxCtx.fillStyle = p.color;
+      fxCtx.beginPath();
+      fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      fxCtx.fill();
+    }
+
+    // 3) 충격파 링
+    fxCtx.globalAlpha = 1;
+    for (const g of fxRings) {
+      g.r += g.vr; g.vr *= .93; g.life -= g.decay;
+      if (g.life <= 0) continue;
+      fxCtx.strokeStyle = `rgba(${g.color},${.6 * g.life})`;
+      fxCtx.lineWidth = Math.max(1, g.w * g.life);
+      fxCtx.beginPath();
+      fxCtx.arc(g.x, g.y, g.r, 0, Math.PI * 2);
+      fxCtx.stroke();
+    }
+    fxRings = fxRings.filter(g => g.life > 0);
+
+    // 4) 폭발 섬광 (화면 전체를 순간적으로 밝힘)
+    if (flash > .01) {
+      fxCtx.fillStyle = `rgba(255,236,190,${flash * .4})`;
+      fxCtx.fillRect(0, 0, fxCanvas.width, fxCanvas.height);
+      flash *= .79;
+    } else flash = 0;
+
+    // 5) 미사일 본체는 다시 일반 합성으로 (금속 질감 유지)
+    fxCtx.globalCompositeOperation = "source-over";
+    fxCtx.globalAlpha = 1;
+    if (missile) updateMissile(now);
+
+    fxCtx.globalAlpha = 1;
+    fxCtx.shadowBlur = 0;
+
+    if (fxParticles.length || fxRings.length || missile || flash) {
+      requestAnimationFrame(fxLoop);
+    } else {
+      fxRunning = false;
+      fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+    }
+  }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // 정답 비교용: 공백 제거 + 소문자화 (예: "워싱턴 D.C." ≈ "워싱턴dc")
+  function normalize(str) {
+    return str.replace(/\s+/g, "").replace(/\./g, "").toLowerCase();
+  }
+
+  // 출제 덱에서 한 장씩 뽑는다 → 100개국을 다 돌기 전엔 같은 나라가 다시 안 나온다.
+  // 덱이 비면 새로 섞고, 이음매에서 연속 중복만 따로 막는다.
+  function pickCountry() {
+    if (deck.length === 0) {
+      deck = shuffle(COUNTRIES);
+      if (lastCode && deck[0].code === lastCode) deck.push(deck.shift());
+    }
+    const c = deck.shift();
+    lastCode = c.code;
+    return c;
+  }
+
+  function updateHud() {
+    const l = Math.max(lives, 0);
+    const livesEl = document.getElementById("lives");
+    livesEl.textContent = "❤️".repeat(l) + "🖤".repeat(MAX_LIVES - l);
+    // 목숨을 다 잃은 뒤 주어지는 마지막 한 번 (여기서 또 틀리면 게임오버)
+    livesEl.classList.toggle("last-chance", lives === 0);
+    document.getElementById("q-score").textContent = `정답 ${score}`;
+  }
+
+  function startGame() {
+    score = 0;
+    lives = MAX_LIVES;
+    lastCode = null;
+    deck = [];        // 새 판이면 덱도 새로 섞어서 시작
+    laps = 0;
+    lapClear.classList.add("hidden");
+    lastPos = null;   // 첫 비행은 지도 중앙에서 출발
+    midFlight = false;
+    // 이전 판의 이펙트/경보 잔상 정리
+    missile = null;
+    fxParticles = []; fxRings = []; flash = 0;
+    document.body.classList.remove("alarm");
+    updateHud();
+    document.body.classList.add("flying");  // 비행 레이어 표시
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    quizScreen.classList.remove("hidden");
+    goNext();
+  }
+
+  // 다음 나라 뽑아서 비행 출발 (이전 피드백은 비행 중 유지 → 도착 시 지워짐)
+  function goNext() {
+    answered = false;
+    currentCountry = pickCountry();
+
+    answerInput.value = "";
+    answerInput.readOnly = false;
+    answerInput.className = "answer-input";
+    answerInput.focus();
+
+    flyTo(currentCountry);
+  }
+
+  // 100개국 한 바퀴를 다 돌고 마지막 문제까지 맞혔을 때
+  function celebrateLap() {
+    laps++;
+    celebrating = true;
+    cancelAnimationFrame(flightAnim);
+    midFlight = false;
+
+    // 화면 고정 오브젝트(핀·비행기)는 줌아웃과 함께 어긋나므로 잠시 숨긴다
+    pinEl.classList.remove("show");
+    planeEl.style.opacity = "0";
+    const fb = document.getElementById("feedback");
+    fb.textContent = ""; fb.className = "feedback";
+
+    document.getElementById("lap-sub").textContent =
+      laps > 1 ? `100개국 전부 방문 · ${laps}바퀴째` : "100개국 전부 방문";
+    lapClear.classList.remove("hidden");
+
+    sfx.fanfare();
+    spawnConfetti();
+    for (let b = 0; b < 7; b++) setTimeout(spawnBurst, 260 + b * 210);
+    tweenCamera(WORLD_W / 2, WORLD_H / 2, fitScale(), 900);   // 지구 전체를 보여주며 마무리
+
+    setTimeout(() => {
+      celebrating = false;
+      lapClear.classList.add("hidden");
+      if (!document.body.classList.contains("flying")) return;  // 그 사이 판이 끝났으면 무시
+      goNext();                                                 // 새 덱으로 다음 바퀴 시작
+    }, 3000);
+  }
+
+  function checkAnswer() {
+    if (answered) return;
+    const typed = answerInput.value.trim();
+    if (typed === "") return;  // 빈 입력은 무시
+    answered = true;
+
+    const q = currentCountry;
+    const isCorrect = normalize(typed) === normalize(q.capital);
+    const feedback = document.getElementById("feedback");
+    answerInput.readOnly = true;
+
+    if (isCorrect) {
+      score++;
+      updateHud();
+      answerInput.classList.add("correct");
+      feedback.textContent = "정답! 🎉";
+      feedback.className = "feedback correct";
+      // 방금 맞힌 나라가 덱의 마지막 장이었다면 = 100개국 한 바퀴 완주
+      if (deck.length === 0) {
+        celebrateLap();
+      } else {
+        launchFireworks();   // 폭죽!
+        goNext();            // 곧바로 다음 나라로 출발
+      }
+    } else {
+      lives--;
+      updateHud();
+      answerInput.classList.add("wrong");
+      // 목숨 0에서 한 번 더 틀리면(lives < 0) 격추 → 게임오버. 그 전까진 플레어로 회피.
+      const shotDown = lives < 0;
+      feedback.innerHTML = shotDown
+        ? `💥 격추당했다! 정답은 <span class="answer-label">${q.capital}</span>`
+        : `🔥 플레어로 회피! 정답은 <span class="answer-label">${q.capital}</span>`;
+      feedback.className = "feedback wrong";
+
+      // 도착지(화면 중앙)의 비행기를 향해 미사일 → 플레어 발사 연출
+      const wp = project(q.lat, q.lon);
+      const target = worldToScreen(wp.x, wp.y);   // ← x, y 각각 전달 (객체 통째로 넘기면 NaN)
+      placePlane(target.x, target.y, -18);
+      planeEl.style.opacity = "1";
+      launchMissile(target.x, target.y, () => {
+        if (shotDown) gameOver();
+        else goNext();
+      }, shotDown);
+    }
+  }
+
+  async function gameOver() {
+    cancelAnimationFrame(flightAnim);
+    midFlight = false;
+    document.body.classList.remove("alarm");   // 경보 해제
+    document.body.classList.remove("flying");  // 비행 레이어 숨김
+    overviewCamera();                          // 지도 전체 보기로 줌아웃
+    quizScreen.classList.add("hidden");
+    resultScreen.classList.remove("hidden");
+
+    document.getElementById("result-score").textContent = `정답 ${score}개`;
+
+    // 이번 기록이 내 최고 기록을 넘었는지 (전송 전에 비교해야 한다)
+    const prevBest = localBest(playerName);
+    const isBest = score > prevBest;
+    document.getElementById("result-who").textContent =
+      isBest && prevBest >= 0 ? `${playerName} · 최고 기록 경신! (이전 ${prevBest})`
+      : isBest                ? playerName
+      : `${playerName} · 최고 ${prevBest}`;
+
+    let emoji, msg;
+    if (score >= 20)      { emoji = "🏆"; msg = "지리 박사 인정! 미사일도 못 막았네!"; }
+    else if (score >= 10) { emoji = "🎉"; msg = "훌륭한 조종 실력이야!"; }
+    else if (score >= 5)  { emoji = "🙂"; msg = "나쁘지 않아. 한 번 더 날아볼까?"; }
+    else                  { emoji = "💥"; msg = "격추당했다! 수도 좀 더 외워보자!"; }
+    if (laps > 0) msg = `세계일주 ${laps}바퀴 완주! ` + msg;
+
+    document.getElementById("result-emoji").textContent = emoji;
+    document.getElementById("result-msg").textContent = msg;
+
+    // 점수 등록 → 랭킹 갱신 (실패해도 게임은 그대로, renderRank가 로컬로 폴백)
+    try { await submitScore(playerName, score); } catch (e) { console.warn(e); }
+    renderRank(resultRank, playerName);
+  }
+
+  // ── 이름 입력 / 화면 전환 ──
+  // 이름이 있어야 시작. 확정된 이름은 다음 방문에도 그대로 쓰도록 저장.
+  function beginWithName() {
+    const n = cleanName(nameInput.value);
+    if (!n) {
+      nameInput.value = "";
+      nameInput.focus();
+      nameInput.classList.remove("shake");
+      void nameInput.offsetWidth;              // 애니메이션 재시작용 리플로우
+      nameInput.classList.add("shake");
+      return;
+    }
+    playerName = n;
+    nameInput.value = n;
+    localStorage.setItem("wcq_name", n);
+    startGame();
+  }
+  function backToStart() {                     // 결과 화면 → 시작 화면(이름 변경)
+    resultScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    nameInput.value = playerName;
+    nameInput.focus();
+    nameInput.select();
+    renderRank(startRank, playerName);
+  }
+
+  // 이벤트 연결
+  document.getElementById("start-btn").onclick = beginWithName;
+  document.getElementById("restart-btn").onclick = startGame;   // 같은 이름으로 재도전
+  document.getElementById("rename-btn").onclick = backToStart;
+  nameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); beginWithName(); }
+  });
+
+  // 첫 진입: 저장된 이름 채우고 랭킹 표시
+  nameInput.value = playerName;
+  renderRank(startRank, playerName);
+
+  // 창 크기 바뀌면 카메라/폭죽 다시 계산
+  window.addEventListener("resize", () => {
+    sizeFx();
+    if (midFlight || celebrating) return;        // 비행/완주 연출 중이면 건드리지 않음
+    if (document.body.classList.contains("flying")) idleAtDest();  // 도착지 줌인 유지
+    else overviewCamera();                        // 시작/결과 화면: 전체 보기
+  });
+
+  // Enter: 채점과 동시에 곧바로 다음 나라로 출발
+  answerInput.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    checkAnswer();
+  });
+</script>
+</body>
+</html>
