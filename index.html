@@ -1409,7 +1409,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
   const sfx = {
     launch() { noiseHit(.7, .18, 2200, 300); tone(210, 80, .6, .10, "sawtooth"); },
     warn()   { tone(1150, 1150, .07, .07, "square"); tone(1150, 1150, .07, .07, "square", .12); },
-    flare()  { noiseHit(.35, .16, 6000, 900); tone(880, 360, .25, .07, "triangle"); },
+    flare()  { noiseHit(.5, .26, 9000, 700); tone(1250, 300, .32, .1, "triangle"); },
     boom(k = 1) { noiseHit(.95 * k, .42 * k, 900, 55, .7); tone(150, 30, .85 * k, .3 * k, "sine"); },
     pop()    { noiseHit(.3, .14, 5000, 600); tone(760, 190, .28, .06, "triangle"); },
     tick()   { tone(1500, 1500, .04, .05, "square"); },   // 제한시간 마지막 3초 초읽기
@@ -1483,24 +1483,45 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     ensureFxLoop();
   }
 
+  // 플레어 한 다발. streak=true 인 입자는 속도 방향으로 늘려 그려져(잔상) 불꽃처럼 보이고,
+  // 날아가는 동안 뒤로 불티를 흘린다 (fxLoop 참고).
+  function flareVolley(x, y, ang, n) {
+    for (let i = 0; i < n; i++) {
+      const a = ang + (Math.random() - .5) * 1.6;
+      const sp = 4 + Math.random() * 6;
+      fxParticles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 1, decay: .007 + Math.random() * .006,      // 오래 탄다
+        size: 5 + Math.random() * 3.5, grav: .07, drag: .986,
+        streak: true,
+        // 밝기를 낮춰야 가산합성에서 코어만 하얗게 타고 주변은 주황으로 읽힌다
+        color: `hsl(${28 + Math.random() * 18}, 100%, ${58 + Math.random() * 14}%)`,
+      });
+      if (i % 2 === 0) fxParticles.push({                 // 플레어 연기
+        x, y, vx: Math.cos(a) * sp * .45, vy: Math.sin(a) * sp * .45,
+        life: .9, decay: .011, size: 5 + Math.random() * 4, grav: .01, growth: .4,
+        smoke: true, color: "#c2c8d4",
+      });
+    }
+    ensureFxLoop();
+  }
+
   // 비행기에서 플레어(적외선 기만탄) 사출 → 미사일이 물 "기만점" 반환
   function spawnFlares(x, y, ang) {
     sfx.flare();
-    for (let i = 0; i < 14; i++) {
-      const a = ang + (Math.random() - .5) * 1.4;
-      const sp = 2.5 + Math.random() * 4;
-      fxParticles.push({
-        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-        life: 1, decay: .011 + Math.random() * .01, size: 3.4 + Math.random() * 2.6,
-        grav: .09, drag: .992,
-        color: `hsl(${30 + Math.random() * 22}, 100%, ${72 + Math.random() * 18}%)`,
-      });
-      if (i % 2 === 0) fxParticles.push({   // 플레어 연기
-        x, y, vx: Math.cos(a) * sp * .5, vy: Math.sin(a) * sp * .5,
-        life: .8, decay: .014, size: 4 + Math.random() * 3, grav: .01, growth: .25,
-        smoke: true, color: "#b6bcc8",
-      });
-    }
+    screenShake(7, 240);                                  // 사출 반동
+    flash = Math.max(flash, .3);                          // 순간 섬광
+    fxRings.push({ x, y, r: 4, vr: 10, w: 8, life: 1, decay: .055, color: "255,222,150" });
+    flareVolley(x, y, ang, 12);
+
+    // 디스펜서처럼 2·3차 연속 사출. 회피 기동 중인 **현재** 비행기 위치에서 뿌려져
+    // 기동하는 비행기 뒤로 불꽃이 줄줄이 흩뿌려진다.
+    for (let k = 1; k <= 2; k++) setTimeout(() => {
+      if (!missile) return;
+      if (k === 1) sfx.flare();
+      flareVolley(missile.plane.x, missile.plane.y, ang + (Math.random() - .5) * .6, 10);
+    }, k * 130);
+
     // 미사일이 쫓아갈 대표 기만점 (플레어 무리와 함께 흘러감)
     return { x, y, vx: Math.cos(ang) * 5.4, vy: Math.sin(ang) * 5.4 };
   }
@@ -1753,6 +1774,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
 
     // 물리 갱신 (항력 + 중력 + 팽창)
+    const born = [];   // 순회 중에 배열을 건드리면 안 되므로 따로 모았다가 뒤에 붙인다
     for (const p of fxParticles) {
       const drag = p.drag ?? .985;
       p.vx *= drag;
@@ -1760,8 +1782,19 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
       p.x += p.vx; p.y += p.vy;
       if (p.growth) p.size += p.growth;
       p.life -= p.decay;
+      // 플레어는 타면서 불티를 흘린다 → 궤적이 선명해진다
+      if (p.streak && p.life > .2 && Math.random() < .6) {
+        born.push({
+          x: p.x, y: p.y,
+          vx: (Math.random() - .5) * .9, vy: (Math.random() - .5) * .9 - .15,
+          life: .8, decay: .035 + Math.random() * .02,
+          size: 1.4 + Math.random() * 1.6, grav: .01, drag: .93,
+          color: `hsl(${38 + Math.random() * 16}, 100%, ${80 + Math.random() * 15}%)`,
+        });
+      }
     }
     fxParticles = fxParticles.filter(p => p.life > 0);
+    if (born.length) fxParticles.push(...born);
 
     // 1) 연기는 일반 합성으로 먼저 (뒤에 깔린다)
     for (const p of fxParticles) {
@@ -1775,9 +1808,27 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 
     // 2) 불꽃·파편은 가산 합성으로 (겹칠수록 하얗게 타오름)
     fxCtx.globalCompositeOperation = "lighter";
+    fxCtx.lineCap = "round";
     for (const p of fxParticles) {
       if (p.smoke) continue;
-      fxCtx.globalAlpha = Math.max(p.life, 0) * .8;   // 겹쳐도 하얗게 날아가지 않게
+      const a = Math.max(p.life, 0);
+      if (p.streak) {
+        // 플레어: 속도 방향으로 늘여 그려 잔상을 만들고, 가운데에 흰 코어를 얹는다
+        fxCtx.globalAlpha = a * .85;
+        fxCtx.strokeStyle = p.color;
+        fxCtx.lineWidth = p.size;
+        fxCtx.beginPath();
+        fxCtx.moveTo(p.x - p.vx * 2.8, p.y - p.vy * 2.8);
+        fxCtx.lineTo(p.x, p.y);
+        fxCtx.stroke();
+        fxCtx.globalAlpha = a * .9;
+        fxCtx.fillStyle = "#fff2c8";
+        fxCtx.beginPath();
+        fxCtx.arc(p.x, p.y, p.size * .36, 0, Math.PI * 2);
+        fxCtx.fill();
+        continue;
+      }
+      fxCtx.globalAlpha = a * .8;   // 겹쳐도 하얗게 날아가지 않게
       fxCtx.fillStyle = p.color;
       fxCtx.beginPath();
       fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
