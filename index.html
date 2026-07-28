@@ -350,10 +350,48 @@
     justify-content: center;
     background: linear-gradient(to top, rgba(10,15,28,.96) 40%, rgba(10,15,28,0));
   }
+  .answer-wrap { width: 100%; max-width: 460px; }
   #answer-bar .answer-input {
-    max-width: 460px;
     box-shadow: 0 6px 24px rgba(0,0,0,.5);
   }
+
+  /* ── 정답 입력 제한시간 게이지 ── */
+  .timer-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    opacity: 0;                       /* 도착 전에는 숨김 */
+    transition: opacity .2s ease;
+  }
+  body.timing .timer-row { opacity: 1; }
+  #timer {
+    flex: 1;
+    height: 7px;
+    background: rgba(255,255,255,.13);
+    border-radius: 999px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  }
+  #timer-fill {
+    height: 100%;
+    width: 100%;
+    transform-origin: left center;    /* scaleX로 줄인다 (레이아웃 재계산 없음) */
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  #timer-num {
+    font-size: 13px;
+    font-weight: 800;
+    color: #cbd5e1;
+    font-variant-numeric: tabular-nums;   /* 숫자 폭 고정 → 안 흔들림 */
+    min-width: 32px;
+    text-align: right;
+    text-shadow: 0 2px 6px rgba(0,0,0,.8);
+  }
+  body.timer-warn #timer-fill { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+  body.timer-danger #timer-fill { background: linear-gradient(90deg, #f87171, #ef4444); }
+  body.timer-danger #timer-num { color: #fca5a5; animation: timer-pulse .5s ease-in-out infinite; }
+  @keyframes timer-pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 
   /* 정답/피드백 안내 (바 바로 위에 떠서 표시) */
   .feedback {
@@ -623,9 +661,15 @@
 <!-- 하단 정답 입력 바 (게임 중에만 표시) -->
 <div class="feedback" id="feedback"></div>
 <div id="answer-bar">
-  <input type="text" class="answer-input" id="answer-input"
-         placeholder="도착한 나라의 수도를 입력하고 Enter" autocomplete="off"
-         autocapitalize="off" spellcheck="false">
+  <div class="answer-wrap">
+    <div class="timer-row">
+      <div id="timer"><div id="timer-fill"></div></div>
+      <span id="timer-num">7.0</span>
+    </div>
+    <input type="text" class="answer-input" id="answer-input"
+           placeholder="도착한 나라의 수도를 입력하고 Enter" autocomplete="off"
+           autocapitalize="off" spellcheck="false">
+  </div>
 </div>
 
 <div class="app">
@@ -779,7 +823,12 @@
     { code: "ch", country: "스위스", capital: "베른", lat: 46.95, lon: 7.44, pop: 9.0 },
   ];
 
-  const MAX_LIVES = 2;   // 시작 목숨
+  const MAX_LIVES = 2;      // 시작 목숨
+  const ANSWER_TIME = 7000; // 정답 입력 제한 시간(ms). 검색해서 찍는 걸 막는 장치
+  // 출제 순서 무작위 폭. 작을수록 인구 순위대로, 클수록 뒤죽박죽.
+  // 65는 2000판 시뮬레이션으로 고른 값 — 첫 문제가 90% 확률로 인구 10위 안,
+  // 최악이어도 25위 안에서 나오고(=아는 나라), 첫 문제 후보가 24개국이라 매판 다르다.
+  const DECK_SPREAD = 65;
 
   let score = 0;         // 맞힌 개수
   let lives = MAX_LIVES;
@@ -1006,6 +1055,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
   // 시작점 S → 도착점 E 로 비행기가 곡선을 그리며 날아감 (카메라 줌인/줌아웃)
   function flyTo(q) {
     cancelAnimationFrame(flightAnim);
+    stopAnswerTimer();          // 비행 중에는 제한시간이 돌지 않는다
     const E = project(q.lat, q.lon);
     const S = lastPos || { x: WORLD_W / 2, y: WORLD_H * 0.45 };
     destCountry = q;
@@ -1079,7 +1129,9 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
       } else {
         lastPos = E;
         midFlight = false;
-        idleAtDest();  // 도착지 줌인 + 핀 표시
+        idleAtDest();       // 도착지 줌인 + 핀 표시
+        startAnswerTimer(); // 제한시간은 **도착 순간에만** 시작한다.
+        // (idleAtDest 안에 넣으면 리사이즈 때도 호출돼서 타이머가 리셋된다 = 치트)
       }
     }
     flightAnim = requestAnimationFrame(frame);
@@ -1289,6 +1341,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     flare()  { noiseHit(.35, .16, 6000, 900); tone(880, 360, .25, .07, "triangle"); },
     boom(k = 1) { noiseHit(.95 * k, .42 * k, 900, 55, .7); tone(150, 30, .85 * k, .3 * k, "sine"); },
     pop()    { noiseHit(.3, .14, 5000, 600); tone(760, 190, .28, .06, "triangle"); },
+    tick()   { tone(1500, 1500, .04, .05, "square"); },   // 제한시간 마지막 3초 초읽기
     // 완주 팡파르 (도-미-솔-도 상행 후 길게)
     fanfare() {
       [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, f, .45, .13, "triangle", i * .13));
@@ -1695,13 +1748,16 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     }
   }
 
-  function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
+  // 출제 덱 만들기 — 인구 순위가 높은 나라일수록 앞쪽에 오도록 편향을 준다.
+  // COUNTRIES는 인구 내림차순이므로 인덱스 i가 곧 순위. 거기에 무작위 흔들림을 더해 정렬한다.
+  //   DECK_SPREAD = 0   → 인구 순서 그대로 (매판 똑같아서 재미없음)
+  //   DECK_SPREAD = 큼  → 완전 무작위 (지금까지 동작)
+  // 전체를 한 번 훑는 순열이라 **중복 없음·100개국 전부 출제** 성질은 그대로 유지된다.
+  function buildDeck() {
+    return COUNTRIES
+      .map((c, i) => ({ c, key: i + (Math.random() - .5) * DECK_SPREAD }))
+      .sort((a, b) => a.key - b.key)
+      .map(o => o.c);
   }
 
   // 정답 비교용: 공백 제거 + 소문자화 (예: "워싱턴 D.C." ≈ "워싱턴dc")
@@ -1710,10 +1766,10 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
   }
 
   // 출제 덱에서 한 장씩 뽑는다 → 100개국을 다 돌기 전엔 같은 나라가 다시 안 나온다.
-  // 덱이 비면 새로 섞고, 이음매에서 연속 중복만 따로 막는다.
+  // 덱이 비면 새로 만들고, 이음매에서 연속 중복만 따로 막는다.
   function pickCountry() {
     if (deck.length === 0) {
-      deck = shuffle(COUNTRIES);
+      deck = buildDeck();
       if (lastCode && deck[0].code === lastCode) deck.push(deck.shift());
     }
     const c = deck.shift();
@@ -1736,6 +1792,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     lastCode = null;
     deck = [];        // 새 판이면 덱도 새로 섞어서 시작
     laps = 0;
+    stopAnswerTimer();
     lapClear.classList.add("hidden");
     closeRankModal();   // 모달 열어둔 채 시작하는 경우 대비
     lastPos = null;   // 첫 비행은 지도 중앙에서 출발
@@ -1765,8 +1822,47 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     flyTo(currentCountry);
   }
 
+  // ── 정답 입력 제한시간 ─────────────────────────
+  // 도착 시점(flyTo 완료)에 시작해서, 다 되면 오답 처리한다.
+  // 게이지는 rAF로 그리지만 **만료 판정은 setTimeout**이 한다 —
+  // 탭을 백그라운드로 돌리면 rAF는 멈추므로, 그걸로 판정하면 탭 전환이 곧 치트가 된다.
+  const timerFill = document.getElementById("timer-fill");
+  const timerNum = document.getElementById("timer-num");
+  let answerDeadline = 0, timerRaf = null, timerTimeout = null, lastTick = -1;
+
+  function startAnswerTimer() {
+    stopAnswerTimer();
+    answerDeadline = performance.now() + ANSWER_TIME;
+    lastTick = -1;
+    document.body.classList.add("timing");
+    timerTimeout = setTimeout(onAnswerTimeout, ANSWER_TIME);
+    timerRaf = requestAnimationFrame(timerFrame);
+  }
+  function stopAnswerTimer() {
+    clearTimeout(timerTimeout); timerTimeout = null;
+    cancelAnimationFrame(timerRaf); timerRaf = null;
+    document.body.classList.remove("timing", "timer-warn", "timer-danger");
+  }
+  function timerFrame(now) {
+    const left = Math.max(0, answerDeadline - now);
+    const ratio = left / ANSWER_TIME;
+    timerFill.style.transform = `scaleX(${ratio})`;
+    timerNum.textContent = (left / 1000).toFixed(1);
+    document.body.classList.toggle("timer-warn", ratio <= .6 && ratio > .3);
+    document.body.classList.toggle("timer-danger", ratio <= .3);
+    const sec = Math.ceil(left / 1000);          // 마지막 3초 초읽기
+    if (sec !== lastTick && sec > 0 && sec <= 3) { lastTick = sec; sfx.tick(); }
+    if (left > 0) timerRaf = requestAnimationFrame(timerFrame);
+  }
+  function onAnswerTimeout() {
+    stopAnswerTimer();
+    if (answered || !document.body.classList.contains("flying")) return;
+    checkAnswer(true);                            // 시간 초과 = 오답
+  }
+
   // 100개국 한 바퀴를 다 돌고 마지막 문제까지 맞혔을 때
   function celebrateLap() {
+    stopAnswerTimer();
     laps++;
     celebrating = true;
     cancelAnimationFrame(flightAnim);
@@ -1795,14 +1891,15 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     }, 3000);
   }
 
-  function checkAnswer() {
+  function checkAnswer(timedOut = false) {
     if (answered) return;
     const typed = answerInput.value.trim();
-    if (typed === "") return;  // 빈 입력은 무시
+    if (!timedOut && typed === "") return;  // 빈 입력은 무시 (시간 초과는 예외)
     answered = true;
+    stopAnswerTimer();
 
     const q = currentCountry;
-    const isCorrect = normalize(typed) === normalize(q.capital);
+    const isCorrect = !timedOut && normalize(typed) === normalize(q.capital);
     const feedback = document.getElementById("feedback");
     answerInput.readOnly = true;
 
@@ -1825,9 +1922,8 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
       answerInput.classList.add("wrong");
       // 목숨 0에서 한 번 더 틀리면(lives < 0) 격추 → 게임오버. 그 전까진 플레어로 회피.
       const shotDown = lives < 0;
-      feedback.innerHTML = shotDown
-        ? `💥 격추당했다! 정답은 <span class="answer-label">${q.capital}</span>`
-        : `🔥 플레어로 회피! 정답은 <span class="answer-label">${q.capital}</span>`;
+      const head = shotDown ? "💥 격추당했다!" : timedOut ? "⏰ 시간 초과!" : "🔥 플레어로 회피!";
+      feedback.innerHTML = `${head} 정답은 <span class="answer-label">${q.capital}</span>`;
       feedback.className = "feedback wrong";
 
       // 도착지(화면 중앙)의 비행기를 향해 미사일 → 플레어 발사 연출
@@ -1844,6 +1940,7 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 
   async function gameOver() {
     cancelAnimationFrame(flightAnim);
+    stopAnswerTimer();
     midFlight = false;
     document.body.classList.remove("alarm");   // 경보 해제
     document.body.classList.remove("flying");  // 비행 레이어 숨김
