@@ -183,7 +183,19 @@ const f=[]; for(let n=0;n<2000;n++) f.push(rank.get(buildDeck()[0].code));
 - 브레이크포인트는 `@media (max-width: 560px)` 하나뿐이다.
 
 ### 지도/비행 레이어
-- `#camera > #map(canvas) + #trail(svg)` — 이 둘만 줌/이동에 함께 스케일됨
+- `#camera > #ocean(div) + #map(canvas) + #trail(svg)` — 이 셋만 줌/이동에 함께 스케일됨
+- **`#ocean` = 지도 바깥 여백을 메우는 바다 블럭.** 지도는 120×60으로 화면비가 고정이라
+  넓은 모니터에선 좌우, 세로 화면에선 위아래에 배경색만 남는다. 그 여백을 같은 바다 블럭으로 채운다.
+  - **캔버스를 키우지 않았다** — 넓은 화면일수록 캔버스가 수천만 픽셀로 불어나고 리사이즈마다 다시 그려야 한다.
+    대신 `#camera` 안에 `background-repeat` 타일 div를 깔았다. 카메라 transform에 같이 스케일되므로
+    **어떤 배율에서도 블럭이 정확히 맞물리고 그리는 비용이 0**이다
+  - 타일은 `makeOceanTile()`이 `drawMap`과 똑같은 방식으로 바다 2×2칸을 그려 data URI로 만든다.
+    틈 색 `BLOCK_GAP`은 **body 배경색과 같은 값**이라 지도 안쪽 블럭 사이 틈과 구분되지 않는다
+  - `sizeOcean()`이 로드 시와 `resize`마다 여백 폭을 다시 잡는다. 기준은 **게임 중 가장 많이
+    줌아웃되는 배율**(`flyTo`의 cruise 하한 = `fitScale()*0.9`)에서 카메라가 지도 끝을 봐도 화면이
+    다 덮이는 값 + 10% + 2칸. FHD~8K·울트라와이드·모바일 세로/가로 전부 9칸 이상 여유 확인
+  - ⚠️ **여백은 `OCEAN_TILE`(= `CELL*2`, 체크무늬 주기)의 배수여야 한다.** 아니면 지도 경계에서
+    체크무늬 위상이 어긋나 이음매가 보인다. `PALETTE["."]`나 `CELL`을 바꾸면 타일도 같이 따라간다
 - `#pin`, `#plane` — 화면 고정(fixed), 크기 일정. `worldToScreen`으로 위치만 잡음
 - 비행 중에만 표시: `body.flying` 클래스로 토글
 
@@ -410,6 +422,7 @@ const f=[]; for(let n=0;n<2000;n++) f.push(rank.get(buildDeck()[0].code));
   0이면 매판 인구순 그대로라 지루하고, 400이면 사실상 무작위. 2000판 시뮬레이션 결과 65에서
   첫 문제가 90% 확률로 인구 10위 안 / 최악 25위 / 첫 문제 후보 24개국으로 균형이 좋았다
 - `CELL` — 블럭 크기 (현재 14), `PALETTE` — 지도 색상
+  (둘 다 `#ocean` 타일이 자동으로 따라간다. 단 `BLOCK_GAP`은 body 배경색과 수동으로 맞춰야 한다)
 - `flyTo`의 `zoomScale = fit * 3.0`, `DURATION = 1800` — 카메라 확대율 / 비행 시간
 - `launchMissile`의 `speed / accel / maxSpeed / turn` — 미사일 속도·선회 성능
 - `chase`의 `dist < 300` — 플레어 사출 거리
