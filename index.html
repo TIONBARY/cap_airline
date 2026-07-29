@@ -777,114 +777,110 @@
   //   pop     인구(백만 명, UN 세계인구전망 2024 추계). 목록 갱신 시 정렬·컷 기준으로만 쓰임
   // 갱신 절차는 CLAUDE.md "나라 목록 갱신(UN 인구 기준)" 참고.
   const COUNTRIES = [
-    { code: "in", country: "인도", capital: "뉴델리", lat: 28.61, lon: 77.21, pop: 1451 },
-    { code: "cn", country: "중국", capital: "베이징", lat: 39.90, lon: 116.40, pop: 1419 },
-    { code: "us", country: "미국", capital: "워싱턴 D.C.", lat: 38.90, lon: -77.04, pop: 345 },
-    { code: "id", country: "인도네시아", capital: "자카르타", lat: -6.21, lon: 106.85, pop: 284 },
-    { code: "pk", country: "파키스탄", capital: "이슬라마바드", lat: 33.68, lon: 73.05, pop: 251 },
-    { code: "ng", country: "나이지리아", capital: "아부자", lat: 9.06, lon: 7.49, pop: 233 },
-    { code: "br", country: "브라질", capital: "브라질리아", lat: -15.79, lon: -47.88, pop: 212 },
-    { code: "bd", country: "방글라데시", capital: "다카", lat: 23.81, lon: 90.41, pop: 174 },
-    { code: "ru", country: "러시아", capital: "모스크바", lat: 55.75, lon: 37.62, pop: 144 },
-    { code: "et", country: "에티오피아", capital: "아디스아바바", lat: 9.03, lon: 38.74, pop: 132 },
-    { code: "mx", country: "멕시코", capital: "멕시코시티", lat: 19.43, lon: -99.13, pop: 131 },
-    { code: "jp", country: "일본", capital: "도쿄", lat: 35.68, lon: 139.69, pop: 124 },
-    { code: "eg", country: "이집트", capital: "카이로", lat: 30.04, lon: 31.24, pop: 117 },
-    { code: "ph", country: "필리핀", capital: "마닐라", lat: 14.60, lon: 120.98, pop: 116 },
-    { code: "cd", country: "콩고민주공화국", capital: "킨샤사", lat: -4.44, lon: 15.27, pop: 109 },
-    { code: "vn", country: "베트남", capital: "하노이", lat: 21.03, lon: 105.85, pop: 101 },
-    { code: "ir", country: "이란", capital: "테헤란", lat: 35.69, lon: 51.39, pop: 92 },
-    { code: "tr", country: "튀르키예", capital: "앙카라", lat: 39.93, lon: 32.86, pop: 87 },
-    { code: "de", country: "독일", capital: "베를린", lat: 52.52, lon: 13.40, pop: 84 },
-    { code: "th", country: "태국", capital: "방콕", lat: 13.76, lon: 100.50, pop: 72 },
-    { code: "gb", country: "영국", capital: "런던", lat: 51.51, lon: -0.13, pop: 69 },
-    { code: "tz", country: "탄자니아", capital: "도도마", lat: -6.16, lon: 35.75, pop: 68 },  // 공식 수도(최대도시는 다르에스살람)
-    { code: "fr", country: "프랑스", capital: "파리", lat: 48.85, lon: 2.35, pop: 66 },
-    { code: "za", country: "남아프리카공화국", capital: "프리토리아", lat: -25.75, lon: 28.19, pop: 64 },  // 행정수도(입법 케이프타운·사법 블룸폰테인)
-    { code: "it", country: "이탈리아", capital: "로마", lat: 41.90, lon: 12.50, pop: 59 },
-    { code: "ke", country: "케냐", capital: "나이로비", lat: -1.29, lon: 36.82, pop: 56 },
-    { code: "mm", country: "미얀마", capital: "네피도", lat: 19.75, lon: 96.10, pop: 54 },  // 2006년 양곤에서 천도
-    { code: "co", country: "콜롬비아", capital: "보고타", lat: 4.71, lon: -74.07, pop: 53 },
-    { code: "kr", country: "대한민국", capital: "서울", lat: 37.57, lon: 126.98, pop: 52 },
-    { code: "sd", country: "수단", capital: "하르툼", lat: 15.50, lon: 32.56, pop: 50 },
-    { code: "ug", country: "우간다", capital: "캄팔라", lat: 0.35, lon: 32.58, pop: 50 },
-    { code: "es", country: "스페인", capital: "마드리드", lat: 40.42, lon: -3.70, pop: 48 },
-    { code: "dz", country: "알제리", capital: "알제", lat: 36.75, lon: 3.06, pop: 47 },
-    { code: "iq", country: "이라크", capital: "바그다드", lat: 33.31, lon: 44.37, pop: 46 },
-    { code: "ar", country: "아르헨티나", capital: "부에노스아이레스", lat: -34.60, lon: -58.38, pop: 46 },
-    { code: "af", country: "아프가니스탄", capital: "카불", lat: 34.53, lon: 69.17, pop: 43 },
-    { code: "ye", country: "예멘", capital: "사나", lat: 15.35, lon: 44.21, pop: 40 },
-    { code: "ca", country: "캐나다", capital: "오타와", lat: 45.42, lon: -75.70, pop: 39 },
-    { code: "pl", country: "폴란드", capital: "바르샤바", lat: 52.23, lon: 21.01, pop: 38 },
-    { code: "ma", country: "모로코", capital: "라바트", lat: 34.02, lon: -6.84, pop: 38 },
-    { code: "ua", country: "우크라이나", capital: "키이우", lat: 50.45, lon: 30.52, pop: 38 },
-    { code: "ao", country: "앙골라", capital: "루안다", lat: -8.84, lon: 13.23, pop: 38 },
-    { code: "uz", country: "우즈베키스탄", capital: "타슈켄트", lat: 41.30, lon: 69.24, pop: 36 },
-    { code: "my", country: "말레이시아", capital: "쿠알라룸푸르", lat: 3.14, lon: 101.69, pop: 35 },
-    { code: "mz", country: "모잠비크", capital: "마푸투", lat: -25.97, lon: 32.57, pop: 35 },
-    { code: "gh", country: "가나", capital: "아크라", lat: 5.60, lon: -0.19, pop: 34 },
-    { code: "pe", country: "페루", capital: "리마", lat: -12.05, lon: -77.04, pop: 34 },
-    { code: "sa", country: "사우디아라비아", capital: "리야드", lat: 24.71, lon: 46.68, pop: 33 },
-    { code: "mg", country: "마다가스카르", capital: "안타나나리보", lat: -18.88, lon: 47.51, pop: 32 },
-    { code: "ci", country: "코트디부아르", capital: "야무수크로", lat: 6.83, lon: -5.29, pop: 32 },  // 공식 수도(최대도시는 아비장)
-    { code: "np", country: "네팔", capital: "카트만두", lat: 27.72, lon: 85.32, pop: 30 },
-    { code: "cm", country: "카메룬", capital: "야운데", lat: 3.85, lon: 11.50, pop: 29 },
-    { code: "ve", country: "베네수엘라", capital: "카라카스", lat: 10.48, lon: -66.90, pop: 28 },
-    { code: "ne", country: "니제르", capital: "니아메", lat: 13.51, lon: 2.11, pop: 27 },
-    { code: "au", country: "호주", capital: "캔버라", lat: -35.28, lon: 149.13, pop: 27 },
-    { code: "kp", country: "북한", capital: "평양", lat: 39.02, lon: 125.75, pop: 26 },
-    { code: "sy", country: "시리아", capital: "다마스쿠스", lat: 33.51, lon: 36.29, pop: 24 },
-    { code: "ml", country: "말리", capital: "바마코", lat: 12.64, lon: -8.00, pop: 24 },
-    { code: "bf", country: "부르키나파소", capital: "와가두구", lat: 12.37, lon: -1.52, pop: 23 },
-    { code: "lk", country: "스리랑카", capital: "콜롬보", lat: 6.93, lon: 79.86, pop: 23 },  // 공식 수도는 스리자야와르데네푸라코테 — 입력 편의상 실질 수도로
-    { code: "mw", country: "말라위", capital: "릴롱궤", lat: -13.96, lon: 33.79, pop: 21 },
-    { code: "zm", country: "잠비아", capital: "루사카", lat: -15.39, lon: 28.32, pop: 21 },
-    { code: "kz", country: "카자흐스탄", capital: "아스타나", lat: 51.17, lon: 71.45, pop: 20 },  // 2019~2022 누르술탄으로 개칭됐다 환원
-    { code: "td", country: "차드", capital: "은자메나", lat: 12.13, lon: 15.06, pop: 20 },
-    { code: "cl", country: "칠레", capital: "산티아고", lat: -33.45, lon: -70.67, pop: 19 },
-    { code: "ro", country: "루마니아", capital: "부쿠레슈티", lat: 44.43, lon: 26.10, pop: 19 },
-    { code: "so", country: "소말리아", capital: "모가디슈", lat: 2.05, lon: 45.32, pop: 19 },
-    { code: "sn", country: "세네갈", capital: "다카르", lat: 14.72, lon: -17.47, pop: 18 },
-    { code: "gt", country: "과테말라", capital: "과테말라시티", lat: 14.63, lon: -90.51, pop: 18 },
-    { code: "nl", country: "네덜란드", capital: "암스테르담", lat: 52.37, lon: 4.90, pop: 18 },
-    { code: "ec", country: "에콰도르", capital: "키토", lat: -0.18, lon: -78.47, pop: 18 },
-    { code: "kh", country: "캄보디아", capital: "프놈펜", lat: 11.56, lon: 104.92, pop: 17 },
-    { code: "zw", country: "짐바브웨", capital: "하라레", lat: -17.83, lon: 31.05, pop: 16 },
-    { code: "gn", country: "기니", capital: "코나크리", lat: 9.64, lon: -13.58, pop: 15 },
-    { code: "bj", country: "베냉", capital: "포르토노보", lat: 6.50, lon: 2.62, pop: 14 },  // 공식 수도(정부 소재지는 코토누)
-    { code: "rw", country: "르완다", capital: "키갈리", lat: -1.94, lon: 30.06, pop: 14 },
-    { code: "bi", country: "부룬디", capital: "기테가", lat: -3.43, lon: 29.93, pop: 14 },  // 2019년 부줌부라에서 천도
-    { code: "bo", country: "볼리비아", capital: "라파스", lat: -16.50, lon: -68.15, pop: 12 },  // 행정수도(헌법상 수도는 수크레)
-    { code: "tn", country: "튀니지", capital: "튀니스", lat: 36.80, lon: 10.18, pop: 12 },
-    { code: "ht", country: "아이티", capital: "포르토프랭스", lat: 18.54, lon: -72.34, pop: 12 },
-    { code: "be", country: "벨기에", capital: "브뤼셀", lat: 50.85, lon: 4.35, pop: 12 },
-    { code: "jo", country: "요르단", capital: "암만", lat: 31.95, lon: 35.93, pop: 11 },
-    { code: "ss", country: "남수단", capital: "주바", lat: 4.85, lon: 31.58, pop: 11 },
-    { code: "do", country: "도미니카공화국", capital: "산토도밍고", lat: 18.49, lon: -69.93, pop: 11 },
-    { code: "cu", country: "쿠바", capital: "아바나", lat: 23.11, lon: -82.37, pop: 11 },
-    { code: "ae", country: "아랍에미리트", capital: "아부다비", lat: 24.45, lon: 54.38, pop: 11 },
-    { code: "hn", country: "온두라스", capital: "테구시갈파", lat: 14.07, lon: -87.19, pop: 11 },
-    { code: "cz", country: "체코", capital: "프라하", lat: 50.08, lon: 14.44, pop: 11 },
-    { code: "se", country: "스웨덴", capital: "스톡홀름", lat: 59.33, lon: 18.07, pop: 11 },
-    { code: "pg", country: "파푸아뉴기니", capital: "포트모르즈비", lat: -9.44, lon: 147.18, pop: 11 },
-    { code: "tj", country: "타지키스탄", capital: "두샨베", lat: 38.56, lon: 68.79, pop: 11 },
-    { code: "pt", country: "포르투갈", capital: "리스본", lat: 38.72, lon: -9.14, pop: 10 },
-    { code: "az", country: "아제르바이잔", capital: "바쿠", lat: 40.41, lon: 49.87, pop: 10 },
-    { code: "gr", country: "그리스", capital: "아테네", lat: 37.98, lon: 23.73, pop: 10 },
-    { code: "hu", country: "헝가리", capital: "부다페스트", lat: 47.50, lon: 19.04, pop: 10 },
-    { code: "tg", country: "토고", capital: "로메", lat: 6.13, lon: 1.22, pop: 9.5 },
-    { code: "il", country: "이스라엘", capital: "예루살렘", lat: 31.78, lon: 35.22, pop: 9.4 },  // 이스라엘이 선언한 수도 (국제적으로 지위 논쟁)
-    { code: "by", country: "벨라루스", capital: "민스크", lat: 53.90, lon: 27.57, pop: 9.2 },
-    { code: "at", country: "오스트리아", capital: "빈", lat: 48.21, lon: 16.37, pop: 9.1 },
-    { code: "ch", country: "스위스", capital: "베른", lat: 46.95, lon: 7.44, pop: 9.0 },
+    { code: "in", country: "인도", capital: "뉴델리", lat: 28.61, lon: 77.21, pop: 1451, diff: 2 },
+    { code: "cn", country: "중국", capital: "베이징", lat: 39.90, lon: 116.40, pop: 1419, diff: 1 },
+    { code: "us", country: "미국", capital: "워싱턴 D.C.", lat: 38.90, lon: -77.04, pop: 345, diff: 1 },
+    { code: "id", country: "인도네시아", capital: "자카르타", lat: -6.21, lon: 106.85, pop: 284, diff: 2 },
+    { code: "pk", country: "파키스탄", capital: "이슬라마바드", lat: 33.68, lon: 73.05, pop: 251, diff: 3 },
+    { code: "ng", country: "나이지리아", capital: "아부자", lat: 9.06, lon: 7.49, pop: 233, diff: 4 },
+    { code: "br", country: "브라질", capital: "브라질리아", lat: -15.79, lon: -47.88, pop: 212, diff: 3 },
+    { code: "bd", country: "방글라데시", capital: "다카", lat: 23.81, lon: 90.41, pop: 174, diff: 3 },
+    { code: "ru", country: "러시아", capital: "모스크바", lat: 55.75, lon: 37.62, pop: 144, diff: 1 },
+    { code: "et", country: "에티오피아", capital: "아디스아바바", lat: 9.03, lon: 38.74, pop: 132, diff: 4 },
+    { code: "mx", country: "멕시코", capital: "멕시코시티", lat: 19.43, lon: -99.13, pop: 131, diff: 1 },
+    { code: "jp", country: "일본", capital: "도쿄", lat: 35.68, lon: 139.69, pop: 124, diff: 1 },
+    { code: "eg", country: "이집트", capital: "카이로", lat: 30.04, lon: 31.24, pop: 117, diff: 1 },
+    { code: "ph", country: "필리핀", capital: "마닐라", lat: 14.60, lon: 120.98, pop: 116, diff: 1 },
+    { code: "cd", country: "콩고민주공화국", capital: "킨샤사", lat: -4.44, lon: 15.27, pop: 109, diff: 4 },
+    { code: "vn", country: "베트남", capital: "하노이", lat: 21.03, lon: 105.85, pop: 101, diff: 2 },
+    { code: "ir", country: "이란", capital: "테헤란", lat: 35.69, lon: 51.39, pop: 92, diff: 2 },
+    { code: "tr", country: "튀르키예", capital: "앙카라", lat: 39.93, lon: 32.86, pop: 87, diff: 3 },
+    { code: "de", country: "독일", capital: "베를린", lat: 52.52, lon: 13.40, pop: 84, diff: 1 },
+    { code: "th", country: "태국", capital: "방콕", lat: 13.76, lon: 100.50, pop: 72, diff: 1 },
+    { code: "gb", country: "영국", capital: "런던", lat: 51.51, lon: -0.13, pop: 69, diff: 1 },
+    { code: "tz", country: "탄자니아", capital: "도도마", lat: -6.16, lon: 35.75, pop: 68, diff: 5 },  // 공식 수도(최대도시는 다르에스살람)
+    { code: "fr", country: "프랑스", capital: "파리", lat: 48.85, lon: 2.35, pop: 66, diff: 1 },
+    { code: "za", country: "남아프리카공화국", capital: "프리토리아", lat: -25.75, lon: 28.19, pop: 64, diff: 4 },  // 행정수도(입법 케이프타운·사법 블룸폰테인)
+    { code: "it", country: "이탈리아", capital: "로마", lat: 41.90, lon: 12.50, pop: 59, diff: 1 },
+    { code: "ke", country: "케냐", capital: "나이로비", lat: -1.29, lon: 36.82, pop: 56, diff: 3 },
+    { code: "mm", country: "미얀마", capital: "네피도", lat: 19.75, lon: 96.10, pop: 54, diff: 5 },  // 2006년 양곤에서 천도
+    { code: "co", country: "콜롬비아", capital: "보고타", lat: 4.71, lon: -74.07, pop: 53, diff: 3 },
+    { code: "kr", country: "대한민국", capital: "서울", lat: 37.57, lon: 126.98, pop: 52, diff: 1 },
+    { code: "sd", country: "수단", capital: "하르툼", lat: 15.50, lon: 32.56, pop: 50, diff: 4 },
+    { code: "ug", country: "우간다", capital: "캄팔라", lat: 0.35, lon: 32.58, pop: 50, diff: 4 },
+    { code: "es", country: "스페인", capital: "마드리드", lat: 40.42, lon: -3.70, pop: 48, diff: 1 },
+    { code: "dz", country: "알제리", capital: "알제", lat: 36.75, lon: 3.06, pop: 47, diff: 3 },
+    { code: "iq", country: "이라크", capital: "바그다드", lat: 33.31, lon: 44.37, pop: 46, diff: 2 },
+    { code: "ar", country: "아르헨티나", capital: "부에노스아이레스", lat: -34.60, lon: -58.38, pop: 46, diff: 2 },
+    { code: "af", country: "아프가니스탄", capital: "카불", lat: 34.53, lon: 69.17, pop: 43, diff: 2 },
+    { code: "ye", country: "예멘", capital: "사나", lat: 15.35, lon: 44.21, pop: 40, diff: 4 },
+    { code: "ca", country: "캐나다", capital: "오타와", lat: 45.42, lon: -75.70, pop: 39, diff: 3 },
+    { code: "pl", country: "폴란드", capital: "바르샤바", lat: 52.23, lon: 21.01, pop: 38, diff: 2 },
+    { code: "ma", country: "모로코", capital: "라바트", lat: 34.02, lon: -6.84, pop: 38, diff: 4 },
+    { code: "ua", country: "우크라이나", capital: "키이우", lat: 50.45, lon: 30.52, pop: 38, diff: 2 },
+    { code: "ao", country: "앙골라", capital: "루안다", lat: -8.84, lon: 13.23, pop: 38, diff: 4 },
+    { code: "uz", country: "우즈베키스탄", capital: "타슈켄트", lat: 41.30, lon: 69.24, pop: 36, diff: 4 },
+    { code: "my", country: "말레이시아", capital: "쿠알라룸푸르", lat: 3.14, lon: 101.69, pop: 35, diff: 2 },
+    { code: "mz", country: "모잠비크", capital: "마푸투", lat: -25.97, lon: 32.57, pop: 35, diff: 5 },
+    { code: "gh", country: "가나", capital: "아크라", lat: 5.60, lon: -0.19, pop: 34, diff: 4 },
+    { code: "pe", country: "페루", capital: "리마", lat: -12.05, lon: -77.04, pop: 34, diff: 3 },
+    { code: "sa", country: "사우디아라비아", capital: "리야드", lat: 24.71, lon: 46.68, pop: 33, diff: 3 },
+    { code: "mg", country: "마다가스카르", capital: "안타나나리보", lat: -18.88, lon: 47.51, pop: 32, diff: 5 },
+    { code: "ci", country: "코트디부아르", capital: "야무수크로", lat: 6.83, lon: -5.29, pop: 32, diff: 5 },  // 공식 수도(최대도시는 아비장)
+    { code: "np", country: "네팔", capital: "카트만두", lat: 27.72, lon: 85.32, pop: 30, diff: 3 },
+    { code: "cm", country: "카메룬", capital: "야운데", lat: 3.85, lon: 11.50, pop: 29, diff: 5 },
+    { code: "ve", country: "베네수엘라", capital: "카라카스", lat: 10.48, lon: -66.90, pop: 28, diff: 3 },
+    { code: "ne", country: "니제르", capital: "니아메", lat: 13.51, lon: 2.11, pop: 27, diff: 5 },
+    { code: "au", country: "호주", capital: "캔버라", lat: -35.28, lon: 149.13, pop: 27, diff: 3 },
+    { code: "kp", country: "북한", capital: "평양", lat: 39.02, lon: 125.75, pop: 26, diff: 1 },
+    { code: "sy", country: "시리아", capital: "다마스쿠스", lat: 33.51, lon: 36.29, pop: 24, diff: 3 },
+    { code: "ml", country: "말리", capital: "바마코", lat: 12.64, lon: -8.00, pop: 24, diff: 4 },
+    { code: "bf", country: "부르키나파소", capital: "와가두구", lat: 12.37, lon: -1.52, pop: 23, diff: 5 },
+    { code: "lk", country: "스리랑카", capital: "콜롬보", lat: 6.93, lon: 79.86, pop: 23, diff: 3 },  // 공식 수도는 스리자야와르데네푸라코테 — 입력 편의상 실질 수도로
+    { code: "mw", country: "말라위", capital: "릴롱궤", lat: -13.96, lon: 33.79, pop: 21, diff: 5 },
+    { code: "zm", country: "잠비아", capital: "루사카", lat: -15.39, lon: 28.32, pop: 21, diff: 4 },
+    { code: "kz", country: "카자흐스탄", capital: "아스타나", lat: 51.17, lon: 71.45, pop: 20, diff: 4 },  // 2019~2022 누르술탄으로 개칭됐다 환원
+    { code: "td", country: "차드", capital: "은자메나", lat: 12.13, lon: 15.06, pop: 20, diff: 5 },
+    { code: "cl", country: "칠레", capital: "산티아고", lat: -33.45, lon: -70.67, pop: 19, diff: 3 },
+    { code: "ro", country: "루마니아", capital: "부쿠레슈티", lat: 44.43, lon: 26.10, pop: 19, diff: 3 },
+    { code: "so", country: "소말리아", capital: "모가디슈", lat: 2.05, lon: 45.32, pop: 19, diff: 3 },
+    { code: "sn", country: "세네갈", capital: "다카르", lat: 14.72, lon: -17.47, pop: 18, diff: 4 },
+    { code: "gt", country: "과테말라", capital: "과테말라시티", lat: 14.63, lon: -90.51, pop: 18, diff: 2 },
+    { code: "nl", country: "네덜란드", capital: "암스테르담", lat: 52.37, lon: 4.90, pop: 18, diff: 2 },
+    { code: "ec", country: "에콰도르", capital: "키토", lat: -0.18, lon: -78.47, pop: 18, diff: 4 },
+    { code: "kh", country: "캄보디아", capital: "프놈펜", lat: 11.56, lon: 104.92, pop: 17, diff: 3 },
+    { code: "zw", country: "짐바브웨", capital: "하라레", lat: -17.83, lon: 31.05, pop: 16, diff: 4 },
+    { code: "gn", country: "기니", capital: "코나크리", lat: 9.64, lon: -13.58, pop: 15, diff: 5 },
+    { code: "bj", country: "베냉", capital: "포르토노보", lat: 6.50, lon: 2.62, pop: 14, diff: 5 },  // 공식 수도(정부 소재지는 코토누)
+    { code: "rw", country: "르완다", capital: "키갈리", lat: -1.94, lon: 30.06, pop: 14, diff: 4 },
+    { code: "bi", country: "부룬디", capital: "기테가", lat: -3.43, lon: 29.93, pop: 14, diff: 5 },  // 2019년 부줌부라에서 천도
+    { code: "bo", country: "볼리비아", capital: "라파스", lat: -16.50, lon: -68.15, pop: 12, diff: 3 },  // 행정수도(헌법상 수도는 수크레)
+    { code: "tn", country: "튀니지", capital: "튀니스", lat: 36.80, lon: 10.18, pop: 12, diff: 3 },
+    { code: "ht", country: "아이티", capital: "포르토프랭스", lat: 18.54, lon: -72.34, pop: 12, diff: 4 },
+    { code: "be", country: "벨기에", capital: "브뤼셀", lat: 50.85, lon: 4.35, pop: 12, diff: 2 },
+    { code: "jo", country: "요르단", capital: "암만", lat: 31.95, lon: 35.93, pop: 11, diff: 3 },
+    { code: "ss", country: "남수단", capital: "주바", lat: 4.85, lon: 31.58, pop: 11, diff: 5 },
+    { code: "do", country: "도미니카공화국", capital: "산토도밍고", lat: 18.49, lon: -69.93, pop: 11, diff: 4 },
+    { code: "cu", country: "쿠바", capital: "아바나", lat: 23.11, lon: -82.37, pop: 11, diff: 3 },
+    { code: "ae", country: "아랍에미리트", capital: "아부다비", lat: 24.45, lon: 54.38, pop: 11, diff: 3 },
+    { code: "hn", country: "온두라스", capital: "테구시갈파", lat: 14.07, lon: -87.19, pop: 11, diff: 5 },
+    { code: "cz", country: "체코", capital: "프라하", lat: 50.08, lon: 14.44, pop: 11, diff: 2 },
+    { code: "se", country: "스웨덴", capital: "스톡홀름", lat: 59.33, lon: 18.07, pop: 11, diff: 2 },
+    { code: "pg", country: "파푸아뉴기니", capital: "포트모르즈비", lat: -9.44, lon: 147.18, pop: 11, diff: 5 },
+    { code: "tj", country: "타지키스탄", capital: "두샨베", lat: 38.56, lon: 68.79, pop: 11, diff: 5 },
+    { code: "pt", country: "포르투갈", capital: "리스본", lat: 38.72, lon: -9.14, pop: 10, diff: 2 },
+    { code: "az", country: "아제르바이잔", capital: "바쿠", lat: 40.41, lon: 49.87, pop: 10, diff: 4 },
+    { code: "gr", country: "그리스", capital: "아테네", lat: 37.98, lon: 23.73, pop: 10, diff: 1 },
+    { code: "hu", country: "헝가리", capital: "부다페스트", lat: 47.50, lon: 19.04, pop: 10, diff: 2 },
+    { code: "tg", country: "토고", capital: "로메", lat: 6.13, lon: 1.22, pop: 9.5, diff: 5 },
+    { code: "il", country: "이스라엘", capital: "예루살렘", lat: 31.78, lon: 35.22, pop: 9.4, diff: 2 },  // 이스라엘이 선언한 수도 (국제적으로 지위 논쟁)
+    { code: "by", country: "벨라루스", capital: "민스크", lat: 53.90, lon: 27.57, pop: 9.2, diff: 4 },
+    { code: "at", country: "오스트리아", capital: "빈", lat: 48.21, lon: 16.37, pop: 9.1, diff: 2 },
+    { code: "ch", country: "스위스", capital: "베른", lat: 46.95, lon: 7.44, pop: 9.0, diff: 4 },
   ];
 
   const MAX_LIVES = 2;      // 시작 목숨
   const ANSWER_TIME = 7000; // 정답 입력 제한 시간(ms). 검색해서 찍는 걸 막는 장치
-  // 출제 순서 무작위 폭. 작을수록 인구 순위대로, 클수록 뒤죽박죽.
-  // 65는 2000판 시뮬레이션으로 고른 값 — 첫 문제가 90% 확률로 인구 10위 안,
-  // 최악이어도 25위 안에서 나오고(=아는 나라), 첫 문제 후보가 24개국이라 매판 다르다.
-  const DECK_SPREAD = 65;
 
   let score = 0;         // 맞힌 개수
   let lives = MAX_LIVES;
@@ -1230,7 +1226,12 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
       2 * (1 - t) * (b - a) + 2 * t * (c - b);
     const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
-    const DURATION = 1800;
+    // 비행 시간은 **거리에 비례**한다. 예전엔 1800ms 고정이었는데,
+    // 실측(20판·1980회) 결과 연속 두 나라 사이 거리가 3px~1127px로 **330배** 벌어진다.
+    // 고정이면 인접국끼리도 1.8초를 통째로 기다리게 되고(전체의 10%가 96px 이하),
+    // 짧은 비행은 cruiseScale이 거의 줌아웃도 안 해서 정지 화면을 보고 있는 꼴이 된다.
+    // 하한 700ms(툭툭 넘어감) / 상한 2000ms(대륙 횡단의 무게감).
+    const DURATION = Math.min(2000, Math.max(700, 600 + dist * 1.5));
     const t0 = performance.now();
 
     function frame(now) {
@@ -1922,16 +1923,9 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     }
   }
 
-  // 출제 덱 만들기 — 인구 순위가 높은 나라일수록 앞쪽에 오도록 편향을 준다.
-  // COUNTRIES는 인구 내림차순이므로 인덱스 i가 곧 순위. 거기에 무작위 흔들림을 더해 정렬한다.
-  //   DECK_SPREAD = 0   → 인구 순서 그대로 (매판 똑같아서 재미없음)
-  //   DECK_SPREAD = 큼  → 완전 무작위 (지금까지 동작)
-  // 전체를 한 번 훑는 순열이라 **중복 없음·100개국 전부 출제** 성질은 그대로 유지된다.
+  // 출제 덱 = 아직 안 나온 나라 풀. 미리 섞지 않고 뽑을 때마다 가중 추출한다.
   function buildDeck() {
-    return COUNTRIES
-      .map((c, i) => ({ c, key: i + (Math.random() - .5) * DECK_SPREAD }))
-      .sort((a, b) => a.key - b.key)
-      .map(o => o.c);
+    return COUNTRIES.slice();
   }
 
   // 정답 비교용: 공백 제거 + 소문자화 (예: "워싱턴 D.C." ≈ "워싱턴dc")
@@ -1939,14 +1933,44 @@ iiiiiiiiiiiiiiiiiiiiiiiiiiididddiiiddiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     return str.replace(/\s+/g, "").replace(/\./g, "").toLowerCase();
   }
 
-  // 출제 덱에서 한 장씩 뽑는다 → 100개국을 다 돌기 전엔 같은 나라가 다시 안 나온다.
-  // 덱이 비면 새로 만들고, 이음매에서 연속 중복만 따로 막는다.
+  // 남은 풀에서 **비복원 가중 추출**로 한 장 뽑는다.
+  //
+  // 왜 "복원 추출"이 아니라 비복원인가 —
+  // 뽑고 다시 넣는 방식이면 같은 나라가 또 나오거나 끝까지 안 나오는 나라가 생겨
+  // "한 바퀴 중복 없음"과 "100개국 전부 출제"가 깨진다(= 세계일주 완주 연출이 거짓말이 된다).
+  // 뽑은 나라를 풀에서 빼면 확률로 고르면서도 그 두 성질이 그대로 지켜진다.
+  //
+  // 확률은 **등급 단위**다. 나라별 가중치를 그대로 쓰면 등급마다 나라 수가 달라
+  // (16/19/24/23/18) 의도한 비율이 안 나온다. 그래서 등급 가중치를 그 등급에
+  // 남은 개수로 나눠 나라별 가중치를 만든다 → 등급이 비면 자동으로 후보에서 빠지고
+  // 남은 등급끼리 확률이 재분배된다.
+  //
+  // 가중치는 진행도에 따라 START → END로 기울어진다. 고정이면 1등급이 소진되는
+  // 53번째 문제 전까지 난이도가 완전히 평평해진다(측정 확인). 기울이면 초반 복불복은
+  // 그대로 두면서 중반부터 완만하게 올라간다.
+  const TIER_W_START = { 1: 30, 2: 25, 3: 20, 4: 15, 5: 10 };   // 첫 문제 기준 등급별 출제 확률(%)
+  const TIER_W_END   = { 1: 10, 2: 15, 3: 20, 4: 25, 5: 30 };   // 마지막 문제 기준
   function pickCountry() {
-    if (deck.length === 0) {
-      deck = buildDeck();
-      if (lastCode && deck[0].code === lastCode) deck.push(deck.shift());
-    }
-    const c = deck.shift();
+    if (deck.length === 0) deck = buildDeck();
+
+    const p = 1 - deck.length / COUNTRIES.length;      // 진행도 0(첫 문제) ~ 1(마지막)
+    const left = {};                                   // 등급별 남은 개수
+    for (const c of deck) left[c.diff] = (left[c.diff] || 0) + 1;
+
+    let total = 0;
+    const w = deck.map(c => {
+      // 덱 이음매에서 직전 나라가 연속으로 나오는 것만 막는다 (가중치 0)
+      if (c.code === lastCode && deck.length > 1) return 0;
+      const tw = TIER_W_START[c.diff] + (TIER_W_END[c.diff] - TIER_W_START[c.diff]) * p;
+      const v = tw / left[c.diff];
+      total += v;
+      return v;
+    });
+
+    let r = Math.random() * total, i = 0;
+    while (i < w.length - 1 && r >= w[i]) { r -= w[i]; i++; }
+
+    const c = deck.splice(i, 1)[0];
     lastCode = c.code;
     return c;
   }
