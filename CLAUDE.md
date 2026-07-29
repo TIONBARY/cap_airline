@@ -79,6 +79,8 @@
   2. **타이머는 `flyTo` 완료 지점에서만 시작한다.** `idleAtDest()` 안에 넣으면 리사이즈 때도
      호출돼서 창 크기만 바꾸면 시간이 리셋된다
 - **Enter 한 번** = 채점 + 즉시 다음 나라로 출발. (이전 문제 결과는 비행 중에 표시되다가 도착 시 사라짐)
+  **단 Enter가 먹는 구간은 "도착해서 제한시간이 도는 동안"뿐이다.** 비행 중·미사일 연출 중·완주 연출 중엔
+  무시된다 (`checkAnswer`의 `answered || midFlight || celebrating` 가드).
 - **정답**: 폭죽 🎉 + 점수 +1
 - **세계일주 완주**: 덱의 **100번째(마지막) 나라까지 맞히면** 완주 연출.
   팡파르 + 색종이 + 폭죽 연발 + 지도 전체로 줌아웃 + "🌍 세계일주 완주!" 배너(3초).
@@ -186,8 +188,13 @@ const f=[]; for(let n=0;n<2000;n++) f.push(rank.get(buildDeck()[0].code));
 - 비행 중에만 표시: `body.flying` 클래스로 토글
 
 ### 핵심 함수
-- `startGame()` — 목숨/점수 초기화, `body.flying` 추가, `goNext()`
-- `goNext()` — 다음 나라 뽑고 `flyTo()`로 출발
+- `startGame()` — 목숨/점수 초기화, **지난 판 잔상 정리**(`armAnswerInput()` + 피드백 비우기 —
+  안 하면 새 판 첫 비행 내내 지난 판의 "⏰ 시간 초과! …"가 남아 보인다), `body.flying` 추가, `goNext()`
+- `goNext()` — 다음 나라 뽑고 `flyTo()`로 출발. **입력창을 열지 않는다** (placeholder만 "✈️ 비행 중…"으로).
+  `focus()`는 여기서만 잡는다 — 이 함수는 유저 제스처(Enter) 안에서 불리지만 `flyTo` 완료 콜백은
+  rAF라 제스처 밖이라 모바일에서 키보드를 못 올린다
+- `armAnswerInput()` — **답을 받기 시작하는 유일한 지점.** `answered=false` + 입력값·정오답 색 리셋 +
+  placeholder 원복. `flyTo` 완료 시 `startAnswerTimer()`와 나란히 호출된다 (새 판은 `startGame`에서도 1회)
 - `pickCountry()` / `buildDeck()` — 출제 순서. 위 **"문제 출제 알고리즘"** 섹션 참고
 - `flyTo(q)` — 베지어 곡선 비행 + 카메라 줌인→줌아웃→줌인. 도착 시 `idleAtDest()`
   - 핀 내용은 **출발 시 비우고, 도착 시(`idleAtDest`)에만 채운다** → 출발 순간 다음 나라 노출 방지
@@ -196,6 +203,9 @@ const f=[]; for(let n=0;n<2000;n++) f.push(rank.get(buildDeck()[0].code));
   **생각 말풍선** 모양이라 꼬리가 삼각형이 아니라 왼쪽 아래(비행기 쪽)로 작아지는 점 두 개(`.pin-tail`).
   비행기를 가리지 않게 하려는 것이므로, 카드 크기나 오프셋을 바꾸면 겹치는지 꼭 확인할 것
 - `checkAnswer(timedOut)` — 채점. 정답→폭죽+goNext / 오답·시간초과→목숨-1+미사일 연출
+  - **맨 앞 가드 `if (answered || midFlight || celebrating) return;` 를 지우지 말 것.**
+    비행 중·연출 중 채점이 통과하면 도착도 안 한 좌표로 미사일이 날아가고, `flyTo`의 rAF와
+    `updateMissile`이 둘 다 `placePlane()`을 호출해 충돌하며 `goNext()`가 이중으로 돈다
   - `timedOut=true`면 입력 내용과 무관하게 오답. 피드백 머리말이 `⏰ 시간 초과!`로 바뀐다
   - 정답 시 `deck.length === 0`이면 방금 맞힌 게 덱의 마지막 장 → `celebrateLap()`
 - `startAnswerTimer()` / `stopAnswerTimer()` — 제한시간 시작·정지.
@@ -355,6 +365,16 @@ const f=[]; for(let n=0;n<2000;n++) f.push(rank.get(buildDeck()[0].code));
 판단이 갈린 나라는 데이터에 한 줄 주석을 달아뒀다 (남아공/코트디부아르/베냉/볼리비아/스리랑카/탄자니아/이스라엘 등).
 
 ## 알려진 이슈 / 참고
+- ✅ (해결됨) **비행 중 Enter가 먹던 버그** — 원인은 "문제 시작 지점"이 둘로 갈려 있던 것.
+  `goNext()`가 출발하면서 입력창을 열어(`readOnly=false`) 비행 중 Enter가 그대로 채점됐다.
+  → **답을 받는 구간을 도착~채점 사이로 못 박았다.** ① `checkAnswer()` 맨 앞 가드
+  ② 입력 리셋을 `armAnswerInput()`으로 묶어 `flyTo` 완료 지점에서만 호출.
+  - **`readOnly`는 일부러 쓰지 않았다** — iOS 사파리는 readonly 입력창에 소프트 키보드를 안 띄운다.
+    이미 포커스된 입력창을 readonly로 바꾸면 키보드가 내려가고, 1.8초 비행마다 오르내리면
+    `--kb` 인셋이 같이 출렁여 화면이 요동친다. **포커스는 한 번 잡으면 끝까지 놓지 않는다.**
+  - 비행 중 타이핑 자체는 되지만 Enter가 안 먹고, 도착 시 `armAnswerInput()`이 값을 비운다.
+    비행 중이라는 표시는 placeholder(`✈️ 비행 중…`)와 `body:not(.timing) #answer-input { opacity: .55 }`
+    로만 한다 (`body.timing`이 곧 "지금 답 받는 중"이라 새 플래그가 필요 없다)
 - ✅ (해결됨) 미사일이 안 보이던 버그: `worldToScreen(project(...))`로 객체를 통째 넘겨 NaN 좌표가 됐던 것.
   `worldToScreen(wp.x, wp.y)`로 수정.
 - ✅ (해결됨) 미사일 연출 조잡함 → 호밍·플레어 기만·경보 UI·폭발/사운드까지 폴리싱 완료.
@@ -369,18 +389,6 @@ const f=[]; for(let n=0;n<2000;n++) f.push(rank.get(buildDeck()[0].code));
   콘솔에서 `fxLoop(performance.now() + k*16.7)`를 직접 반복 호출하면 프레임을 수동으로 돌릴 수 있다.
 
 ## ▶ 다음 작업
-0. 🐞 **[버그] 비행 중 Enter 입력이 먹는다 (최우선)**
-   비행기가 이동하는 동안 입력창에 아무 값이나 넣고 Enter를 치면 그대로 채점돼 버린다.
-   `goNext()`가 입력창을 열어둔 채(`readOnly = false`) `flyTo()`를 시작하기 때문.
-   - 도착 전이라 **핀도 안 뜬 상태에서 오답 처리**되고, 미사일이 아직 도착하지도 않은
-     목적지 좌표로 발사돼 비행 중인 비행기와 따로 논다
-   - `flyTo`의 rAF 루프와 `updateMissile`이 **둘 다 `placePlane()`을 호출**해 서로 덮어쓴다
-   - 비행이 끝나면 `idleAtDest()` + `startAnswerTimer()`가 미사일 연출 도중에 끼어들고,
-     미사일 콜백이 `goNext()`를 부르면서 비행이 이중으로 겹친다
-   - 정답을 맞힌 경우도 문제: `lastPos`가 갱신되기 전에 `goNext()`가 돌아 다음 비행이 엉뚱한 데서 출발
-   - **조치 방향**: `checkAnswer()` 맨 앞에서 `if (midFlight) return;` 로 막고,
-     입력창은 비행 중 `readOnly = true` + 안내 문구(예: "비행 중…"), 도착 시(`flyTo` 완료) 해제.
-     제한시간도 도착 시점에만 시작하므로 그 지점과 함께 묶으면 일관된다.
 1. **실기기에서 모바일 확인** — 코드 검증은 끝났지만 실제 폰에서 본 적이 없다.
    iOS 사파리(키보드 인셋이 가장 까다롭다) / 안드로이드 크롬에서 한 판씩 돌려볼 것.
 2. **진짜 난이도 필드** — 지금은 인구 순위를 인지도 대용으로 쓰는데 완벽하진 않다.
@@ -389,7 +397,8 @@ const f=[]; for(let n=0;n<2000;n++) f.push(rank.get(buildDeck()[0].code));
 3. **점수 연동 난이도 상승** — 점수가 오를수록 미사일이 빨라지게
    (`launchMissile`의 `speed`/`turn`을 `score`로 스케일). 제한시간을 점점 줄이는 방법도 있다.
 
-**완료된 것** — 미사일 연출 폴리싱 / 100개국 확장 / 중복 없는 출제 / 세계일주 완주 연출 /
+**완료된 것** — 비행 중 Enter 채점 버그 수정 /
+미사일 연출 폴리싱 / 100개국 확장 / 중복 없는 출제 / 세계일주 완주 연출 /
 이름 입력 + 온라인 랭킹(Supabase) / 파비콘·OG / GitHub Pages 배포 /
 **커스텀 도메인 `capairline.com` + HTTPS** / 정답 제한시간 / 인구 순위 기반 출제 순서 / MIT 라이선스
 
